@@ -18,3 +18,8 @@ class Session(Base):
     duration_minutes: Mapped[int | None] = mapped_column(Integer)
 
     campaign: Mapped["Campaign"] = relationship(back_populates="sessions")
+
+    encounters: Mapped[list["Encounter"]] = relationship(
+        back_populates="session",
+        cascade="all, delete-orphan"
+    )
