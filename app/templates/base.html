@@ -1,0 +1,27 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>{% block title %}DnD Campaign Manager{% endblock %}</title>
+    <link rel="stylesheet" href="/static/style.css" />
+</head>
+<body>
+    <div class="container">
+        <header class="topbar">
+            <div>
+                <h1>DnD Campaign Manager</h1>
+                <p class="muted">DM dashboard for campaigns, sessions, encounters, and events.</p>
+            </div>
+            <nav class="topbar-links">
+                <a href="/">Home</a>
+                <a href="/docs">Swagger</a>
+                <a href="/redoc">ReDoc</a>
+                <a href="/health">Health</a>
+            </nav>
+        </header>
+
+        {% block content %}{% endblock %}
+    </div>
+</body>
+</html>
