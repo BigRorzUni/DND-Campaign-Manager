@@ -72,7 +72,7 @@ pytest -q
 ```
 
 ## API Documentation
-The full documentation is available at \docs\documentation.pdf
+The full API documentation is available at \docs\documentation.pdf
 
 This document contains the OpenAPI specification exported from the FastAPI application.
 
