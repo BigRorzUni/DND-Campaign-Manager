@@ -18,3 +18,8 @@ class Encounter(Base):
     notes: Mapped[str | None] = mapped_column(String(4000))
 
     session: Mapped["Session"] = relationship(back_populates="encounters")
+
+    events: Mapped[list["Event"]] = relationship(
+        back_populates="encounter",
+        cascade="all, delete-orphan"
+    )
