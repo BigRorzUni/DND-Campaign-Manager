@@ -17,213 +17,168 @@ def create_app() -> FastAPI:
     application.include_router(api_v1_router, prefix="/api/v1")
 
     @application.get("/", response_class=HTMLResponse)
-    def home() -> str:
+    def home():
         return """
-        <!DOCTYPE html>
-        <html lang="en">
-        <head>
-            <meta charset="UTF-8" />
-            <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-            <title>DnD Campaign Manager API</title>
-            <style>
-                :root {
-                    --bg: #0f172a;
-                    --panel: #111827;
-                    --panel-2: #1f2937;
-                    --text: #e5e7eb;
-                    --muted: #94a3b8;
-                    --accent: #8b5cf6;
-                    --accent-2: #22c55e;
-                    --border: #334155;
-                }
+    <!DOCTYPE html>
+    <html>
+    <head>
+    <title>DnD Campaign Manager</title>
 
-                * {
-                    box-sizing: border-box;
-                }
+    <style>
 
-                body {
-                    margin: 0;
-                    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-                    background: linear-gradient(180deg, var(--bg), #111827);
-                    color: var(--text);
-                    line-height: 1.6;
-                }
+    body{
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto;
+        background:#0f172a;
+        color:#e5e7eb;
+        margin:0;
+    }
 
-                .container {
-                    max-width: 1000px;
-                    margin: 0 auto;
-                    padding: 48px 24px 64px;
-                }
+    .container{
+        max-width:900px;
+        margin:auto;
+        padding:40px;
+    }
 
-                .hero {
-                    background: rgba(17, 24, 39, 0.85);
-                    border: 1px solid var(--border);
-                    border-radius: 20px;
-                    padding: 32px;
-                    box-shadow: 0 10px 30px rgba(0,0,0,0.25);
-                }
+    h1{
+        margin-bottom:5px;
+    }
 
-                h1, h2, h3 {
-                    margin-top: 0;
-                }
+    .card{
+        background:#111827;
+        padding:20px;
+        border-radius:12px;
+        margin-bottom:20px;
+        border:1px solid #334155;
+    }
 
-                h1 {
-                    font-size: 2.4rem;
-                    margin-bottom: 12px;
-                }
+    button{
+        padding:10px 14px;
+        border:none;
+        border-radius:8px;
+        background:#8b5cf6;
+        color:white;
+        cursor:pointer;
+    }
 
-                .subtitle {
-                    color: var(--muted);
-                    font-size: 1.05rem;
-                    max-width: 720px;
-                }
+    input,textarea{
+        width:100%;
+        padding:8px;
+        margin-top:5px;
+        margin-bottom:10px;
+        border-radius:6px;
+        border:1px solid #334155;
+        background:#020617;
+        color:white;
+    }
 
-                .button-row {
-                    display: flex;
-                    flex-wrap: wrap;
-                    gap: 12px;
-                    margin-top: 24px;
-                }
+    .campaign{
+        padding:12px;
+        border-radius:8px;
+        border:1px solid #334155;
+        margin-bottom:10px;
+    }
 
-                .button {
-                    display: inline-block;
-                    padding: 12px 18px;
-                    border-radius: 12px;
-                    text-decoration: none;
-                    color: white;
-                    font-weight: 600;
-                    border: 1px solid transparent;
-                }
+    .linkbtn{
+        margin-left:10px;
+        text-decoration:none;
+        color:#22c55e;
+    }
 
-                .button.primary {
-                    background: var(--accent);
-                }
+    </style>
 
-                .button.secondary {
-                    background: var(--panel-2);
-                    border-color: var(--border);
-                }
+    </head>
 
-                .grid {
-                    display: grid;
-                    grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
-                    gap: 18px;
-                    margin-top: 28px;
-                }
+    <body>
 
-                .card {
-                    background: rgba(17, 24, 39, 0.9);
-                    border: 1px solid var(--border);
-                    border-radius: 16px;
-                    padding: 20px;
-                }
+    <div class="container">
 
-                .card h3 {
-                    margin-bottom: 10px;
-                }
+    <h1>DnD Campaign Manager</h1>
+    <p>Manage campaigns, sessions, encounters and events.</p>
 
-                .muted {
-                    color: var(--muted);
-                }
+    <div class="card">
 
-                code {
-                    background: #0b1220;
-                    border: 1px solid var(--border);
-                    border-radius: 8px;
-                    padding: 2px 8px;
-                    color: #c4b5fd;
-                }
+    <h2>Create Campaign</h2>
 
-                ul {
-                    padding-left: 20px;
-                    margin-bottom: 0;
-                }
+    <form id="campaign-form">
+    <input id="name" placeholder="Campaign name" required>
+    <textarea id="description" placeholder="Description"></textarea>
+    <button>Create Campaign</button>
+    </form>
 
-                .footer {
-                    margin-top: 32px;
-                    color: var(--muted);
-                    font-size: 0.95rem;
-                }
+    </div>
 
-                .pill {
-                    display: inline-block;
-                    padding: 6px 10px;
-                    border-radius: 999px;
-                    background: rgba(34, 197, 94, 0.12);
-                    color: #86efac;
-                    border: 1px solid rgba(34, 197, 94, 0.25);
-                    font-size: 0.9rem;
-                    font-weight: 600;
-                    margin-bottom: 16px;
-                }
-            </style>
-        </head>
-        <body>
-            <div class="container">
-                <section class="hero">
-                    <div class="pill">COMP3011 Coursework Project</div>
-                    <h1>DnD Campaign Manager API</h1>
-                    <p class="subtitle">
-                        A REST API for managing Dungeons & Dragons campaigns, sessions, encounters, and event logs,
-                        with analytics for damage, encounter difficulty, and event breakdowns.
-                    </p>
+    <div class="card">
 
-                    <div class="button-row">
-                        <a class="button primary" href="/docs">Open Swagger Docs</a>
-                        <a class="button secondary" href="/redoc">Open ReDoc</a>
-                        <a class="button secondary" href="/health">Health Check</a>
-                    </div>
-                </section>
+    <h2>Campaigns</h2>
+    <div id="campaigns"></div>
 
-                <section class="grid">
-                    <div class="card">
-                        <h3>Core Hierarchy</h3>
-                        <p class="muted">
-                            The API models campaign activity with a simple relational structure:
-                        </p>
-                        <p>
-                            <code>Campaign → Session → Encounter → Event</code>
-                        </p>
-                    </div>
+    </div>
 
-                    <div class="card">
-                        <h3>Core Features</h3>
-                        <ul>
-                            <li>Campaign CRUD</li>
-                            <li>Session management</li>
-                            <li>Encounter tracking</li>
-                            <li>Event logging</li>
-                        </ul>
-                    </div>
+    <div class="card">
 
-                    <div class="card">
-                        <h3>Analytics</h3>
-                        <ul>
-                            <li><code>/api/v1/analytics/campaigns/{id}/damage-leaderboard</code></li>
-                            <li><code>/api/v1/analytics/campaigns/{id}/encounter-difficulty</code></li>
-                            <li><code>/api/v1/analytics/campaigns/{id}/event-breakdown</code></li>
-                        </ul>
-                    </div>
+    <h2>API Tools</h2>
 
-                    <div class="card">
-                        <h3>Suggested Demo Flow</h3>
-                        <ol>
-                            <li>Create a campaign</li>
-                            <li>Add a session</li>
-                            <li>Add an encounter</li>
-                            <li>Log events</li>
-                            <li>View analytics</li>
-                        </ol>
-                    </div>
-                </section>
+    <p>
+    <a href="/docs">Swagger Docs</a><br>
+    <a href="/redoc">ReDoc Documentation</a><br>
+    <a href="/health">Health Check</a>
+    </p>
 
-                <p class="footer">
-                    Built with FastAPI, SQLAlchemy, SQLite, and pytest.
-                </p>
-            </div>
-        </body>
-        </html>
-        """
+    </div>
+
+    </div>
+
+    <script>
+
+    async function loadCampaigns(){
+
+        const res = await fetch("/api/v1/campaigns")
+        const data = await res.json()
+
+        const container = document.getElementById("campaigns")
+        container.innerHTML = ""
+
+        for(const c of data){
+
+            const div = document.createElement("div")
+            div.className = "campaign"
+
+            div.innerHTML = `
+            <strong>${c.name}</strong><br>
+            ${c.description ?? ""}
+            <br>
+            <a class="linkbtn" href="/campaigns/${c.id}/view">Open</a>
+            `
+
+            container.appendChild(div)
+        }
+    }
+
+    document.getElementById("campaign-form").addEventListener("submit", async e => {
+
+        e.preventDefault()
+
+        await fetch("/api/v1/campaigns",{
+            method:"POST",
+            headers:{"Content-Type":"application/json"},
+            body:JSON.stringify({
+                name:document.getElementById("name").value,
+                description:document.getElementById("description").value
+            })
+        })
+
+        document.getElementById("campaign-form").reset()
+
+        loadCampaigns()
+    })
+
+    loadCampaigns()
+
+    </script>
+
+    </body>
+    </html>
+    """
 
     @application.get("/health")
     def health():
