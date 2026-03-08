@@ -18,9 +18,9 @@
 
         <div id="encounter-review">
             <p class="muted"><strong>Intended Difficulty:</strong> <span id="review-expected">Loading...</span></p>
-            <p class="muted"><strong>Observed Outcome:</strong> <span id="review-observed">Not yet available</span></p>
-            <p class="muted"><strong>Assessment:</strong> <span id="review-assessment">Review functionality coming soon.</span></p>
-            <p class="muted"><strong>Notes:</strong> <span id="review-notes">Future versions will use encounter events and party starting state.</span></p>
+            <p class="muted"><strong>Observed Outcome:</strong> <span id="review-observed">Loading...</span></p>
+            <p class="muted"><strong>Assessment:</strong> <span id="review-assessment">Loading...</span></p>
+            <p class="muted"><strong>Notes:</strong> <span id="review-notes">Loading...</span></p>
         </div>
     </section>
 
@@ -121,6 +121,22 @@ async function loadEvents() {
     }
 }
 
+async function loadEncounterReview() {
+    const review = await api(`/api/v1/encounters/${encounterId}/review`);
+
+    document.getElementById("review-expected").textContent =
+        review.expected_difficulty || "Not set";
+
+    document.getElementById("review-observed").textContent =
+        review.observed_outcome;
+
+    document.getElementById("review-assessment").textContent =
+        review.assessment;
+
+    document.getElementById("review-notes").textContent =
+        review.notes;
+}
+
 document.getElementById("event-form").addEventListener("submit", async (e) => {
     e.preventDefault();
 
@@ -139,11 +155,13 @@ document.getElementById("event-form").addEventListener("submit", async (e) => {
 
     e.target.reset();
     await loadEvents();
+    await loadEncounterReview();
 });
 
 async function init() {
     await loadEncounter();
     await loadEvents();
+    await loadEncounterReview();
 }
 
 init();
