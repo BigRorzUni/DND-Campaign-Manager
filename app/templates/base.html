@@ -17,7 +17,20 @@
                 <a href="/">Home</a>
                 <a href="/docs">Swagger</a>
                 <a href="/redoc">ReDoc</a>
-                <a href="/health">Health</a>
+                <a href="#" id="health-check-link">Health</a>
+
+                <script>
+                document.getElementById("health-check-link").addEventListener("click", async (e) => {
+                    e.preventDefault();
+                    try {
+                        const response = await fetch("/health");
+                        const data = await response.json();
+                        alert(`Health status: ${data.status}`);
+                    } catch (err) {
+                        alert("Health check failed.");
+                    }
+                });
+                </script>
             </nav>
         </header>
 

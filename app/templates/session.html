@@ -1,0 +1,165 @@
+{% extends "base.html" %}
+
+{% block title %}Session{% endblock %}
+
+{% block content %}
+
+<div id="session-page" data-session-id="{{ session_id }}">
+
+<section class="card">
+    <h2 id="session-title">Session</h2>
+    <p id="session-date" class="muted"></p>
+    <p id="session-notes" class="muted"></p>
+</section>
+
+<section class="card">
+    <h2>Encounters</h2>
+
+    <div id="encounters"></div>
+
+    <h3>Create Encounter</h3>
+
+    <form id="encounter-form">
+        <input id="encounter-name" placeholder="Encounter name" required>
+
+        <input id="encounter-difficulty"
+               placeholder="Expected difficulty (Easy / Medium / Hard)">
+
+        <input id="encounter-rounds"
+               type="number"
+               placeholder="Rounds">
+
+        <textarea id="encounter-notes"
+                  placeholder="Encounter notes"></textarea>
+
+        <button>Create Encounter</button>
+    </form>
+
+</section>
+
+</div>
+
+<script>
+
+const sessionId = Number(
+    document.getElementById("session-page").dataset.sessionId
+);
+
+async function api(path, options = {}) {
+
+    const response = await fetch(path, {
+        headers: { "Content-Type": "application/json" },
+        ...options
+    });
+
+    if (!response.ok) {
+        let detail = "Request failed";
+        try {
+            const data = await response.json();
+            detail = data.detail || JSON.stringify(data);
+        } catch (_) {}
+        throw new Error(detail);
+    }
+
+    if (response.status === 204) return null;
+
+    return response.json();
+}
+
+async function loadSession() {
+
+    const session = await api(`/api/v1/sessions/${sessionId}`);
+
+    document.getElementById("session-title").textContent =
+        session.title || "Untitled Session";
+
+    document.getElementById("session-date").textContent =
+        session.date;
+
+    document.getElementById("session-notes").textContent =
+        session.notes || "";
+
+}
+
+async function loadEncounters() {
+
+    const encounters =
+        await api(`/api/v1/sessions/${sessionId}/encounters`);
+
+    const container = document.getElementById("encounters");
+
+    container.innerHTML = "";
+
+    if (!encounters.length) {
+
+        container.innerHTML =
+            "<p class='muted'>No encounters yet.</p>";
+
+        return;
+    }
+
+    for (const e of encounters) {
+
+        const div = document.createElement("div");
+
+        div.className = "item";
+
+        div.innerHTML = `
+            <strong>${e.name}</strong><br>
+            <span class="muted">
+                ${e.expected_difficulty || "Difficulty not set"}
+            </span><br>
+            <a href="/encounters/${e.id}/view">Open Encounter</a>
+        `;
+
+        container.appendChild(div);
+    }
+}
+
+document
+.getElementById("encounter-form")
+.addEventListener("submit", async (e) => {
+
+    e.preventDefault();
+
+    await api(`/api/v1/sessions/${sessionId}/encounters`, {
+
+        method: "POST",
+
+        body: JSON.stringify({
+
+            name:
+                document.getElementById("encounter-name").value,
+
+            expected_difficulty:
+                document.getElementById("encounter-difficulty").value || null,
+
+            rounds:
+                document.getElementById("encounter-rounds").value
+                    ? Number(document.getElementById("encounter-rounds").value)
+                    : null,
+
+            notes:
+                document.getElementById("encounter-notes").value || null
+        })
+
+    });
+
+    e.target.reset();
+
+    await loadEncounters();
+});
+
+async function init() {
+
+    await loadSession();
+
+    await loadEncounters();
+
+}
+
+init();
+
+</script>
+
+{% endblock %}
