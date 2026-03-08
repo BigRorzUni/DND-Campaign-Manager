@@ -13,3 +13,8 @@ class Campaign(Base):
         back_populates="campaign",
         cascade="all, delete-orphan"
     )
+
+    characters: Mapped[list["Character"]] = relationship(
+        back_populates="campaign",
+        cascade="all, delete-orphan"
+    )

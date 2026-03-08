@@ -3,44 +3,66 @@
 {% block title %}Campaign{% endblock %}
 
 {% block content %}
-<section class="card">
-    <h2 id="campaign-name">Campaign</h2>
-    <p id="campaign-description" class="muted"></p>
-        <div id="campaign-page" data-campaign-id="{{ campaign_id }}">
-            <p class="muted small">Campaign ID: <code id="campaign-id">{{ campaign_id }}</code></p>
-        </div>
-</section>
 
-<section class="card">
-    <h2>Sessions</h2>
-    <div id="sessions"></div>
+<div id="campaign-page" data-campaign-id="{{ campaign_id }}">
 
-    <h3>Create Session</h3>
-    <form id="session-form">
-        <input id="session-date" placeholder="2026-03-08" required />
-        <input id="session-title" placeholder="Session title" />
-        <textarea id="session-notes" placeholder="Session notes"></textarea>
-        <input id="session-duration" type="number" placeholder="Duration minutes" />
-        <button type="submit">Create Session</button>
-    </form>
-</section>
+    <section class="card">
+        <h2 id="campaign-name">Campaign</h2>
+        <p id="campaign-description" class="muted"></p>
+        <p class="muted small">Campaign ID: <code id="campaign-id">{{ campaign_id }}</code></p>
+    </section>
 
-<section class="card">
-    <h2>Analytics</h2>
+    <section class="card">
+        <h2>Sessions</h2>
+        <div id="sessions"></div>
 
-    <h3>Damage Leaderboard</h3>
-    <div id="damage-leaderboard" class="muted">Loading...</div>
+        <h3>Create Session</h3>
+        <form id="session-form">
+            <input id="session-date" placeholder="2026-03-08" required />
+            <input id="session-title" placeholder="Session title" />
+            <textarea id="session-notes" placeholder="Session notes"></textarea>
+            <input id="session-duration" type="number" placeholder="Duration minutes" />
+            <button type="submit">Create Session</button>
+        </form>
+    </section>
 
-    <h3>Event Breakdown</h3>
-    <div id="event-breakdown" class="muted">Loading...</div>
+    <section class="card">
+        <h2>Characters</h2>
+        <div id="characters"></div>
 
-    <h3>Encounter Difficulty</h3>
-    <div id="encounter-difficulty" class="muted">Loading...</div>
-</section>
+        <h3>Create Character</h3>
+        <form id="character-form">
+            <input id="character-name" placeholder="Character name" required />
+            <input id="character-role" placeholder="PC / NPC / MONSTER" required />
+            <input id="character-class-name" placeholder="Class name" />
+            <input id="character-level" type="number" placeholder="Level" />
+            <input id="character-max-hp" type="number" placeholder="Max HP" />
+            <input id="character-current-hp" type="number" placeholder="Current HP" />
+            <input id="character-ac" type="number" placeholder="Armour Class" />
+            <textarea id="character-notes" placeholder="Character notes"></textarea>
+            <button type="submit">Create Character</button>
+        </form>
+    </section>
+
+    <section class="card">
+        <h2>Analytics</h2>
+
+        <h3>Damage Leaderboard</h3>
+        <div id="damage-leaderboard" class="muted">Loading...</div>
+
+        <h3>Event Breakdown</h3>
+        <div id="event-breakdown" class="muted">Loading...</div>
+
+        <h3>Encounter Difficulty</h3>
+        <div id="encounter-difficulty" class="muted">Loading...</div>
+    </section>
+
+</div>
 
 <script>
-
-const campaignId = Number(document.getElementById("campaign-page").dataset.campaignId);
+const campaignId = Number(
+    document.getElementById("campaign-page").dataset.campaignId
+);
 
 async function api(path, options = {}) {
     const response = await fetch(path, {
@@ -64,7 +86,8 @@ async function api(path, options = {}) {
 async function loadCampaign() {
     const campaign = await api(`/api/v1/campaigns/${campaignId}`);
     document.getElementById("campaign-name").textContent = campaign.name;
-    document.getElementById("campaign-description").textContent = campaign.description || "No description provided.";
+    document.getElementById("campaign-description").textContent =
+        campaign.description || "No description provided.";
 }
 
 async function loadSessions() {
@@ -84,6 +107,36 @@ async function loadSessions() {
             <strong>${s.title || "Untitled session"}</strong><br>
             <span class="muted">${s.date}</span><br>
             <a href="/sessions/${s.id}/view">Open Session</a>
+        `;
+        container.appendChild(div);
+    }
+}
+
+async function loadCharacters() {
+    const characters = await api(`/api/v1/campaigns/${campaignId}/characters`);
+    const container = document.getElementById("characters");
+    container.innerHTML = "";
+
+    if (!characters.length) {
+        container.innerHTML = "<p class='muted'>No characters yet.</p>";
+        return;
+    }
+
+    for (const c of characters) {
+        const div = document.createElement("div");
+        div.className = "item";
+        div.innerHTML = `
+            <strong>${c.name}</strong><br>
+            <span class="muted">
+                ${c.role}
+                ${c.class_name ? ` | ${c.class_name}` : ""}
+                ${c.level ? ` | Level ${c.level}` : ""}
+            </span><br>
+            <span class="muted">
+                HP: ${c.current_hp ?? "?"}/${c.max_hp ?? "?"}
+                ${c.armor_class !== null && c.armor_class !== undefined ? ` | AC ${c.armor_class}` : ""}
+            </span><br>
+            <span class="muted">${c.notes || ""}</span>
         `;
         container.appendChild(div);
     }
@@ -161,9 +214,39 @@ document.getElementById("session-form").addEventListener("submit", async (e) => 
     await loadSessions();
 });
 
+document.getElementById("character-form").addEventListener("submit", async (e) => {
+    e.preventDefault();
+
+    await api(`/api/v1/campaigns/${campaignId}/characters`, {
+        method: "POST",
+        body: JSON.stringify({
+            name: document.getElementById("character-name").value,
+            role: document.getElementById("character-role").value,
+            class_name: document.getElementById("character-class-name").value || null,
+            level: document.getElementById("character-level").value
+                ? Number(document.getElementById("character-level").value)
+                : null,
+            max_hp: document.getElementById("character-max-hp").value
+                ? Number(document.getElementById("character-max-hp").value)
+                : null,
+            current_hp: document.getElementById("character-current-hp").value
+                ? Number(document.getElementById("character-current-hp").value)
+                : null,
+            armor_class: document.getElementById("character-ac").value
+                ? Number(document.getElementById("character-ac").value)
+                : null,
+            notes: document.getElementById("character-notes").value || null
+        })
+    });
+
+    e.target.reset();
+    await loadCharacters();
+});
+
 async function init() {
     await loadCampaign();
     await loadSessions();
+    await loadCharacters();
     await loadDamageLeaderboard();
     await loadEventBreakdown();
     await loadEncounterDifficulty();
@@ -171,5 +254,5 @@ async function init() {
 
 init();
 </script>
-{% endblock %}
 
+{% endblock %}
