@@ -23,3 +23,8 @@ class Encounter(Base):
         back_populates="encounter",
         cascade="all, delete-orphan"
     )
+
+    participants: Mapped[list["EncounterParticipantState"]] = relationship(
+        back_populates="encounter",
+        cascade="all, delete-orphan"
+    )

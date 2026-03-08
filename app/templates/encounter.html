@@ -14,6 +14,26 @@
     </section>
 
     <section class="card">
+        <h2>Participants / Starting State</h2>
+        <div id="participants"></div>
+
+        <h3>Add Participant</h3>
+        <form id="participant-form">
+            <select id="participant-character-id" required>
+                <option value="">Select character</option>
+            </select>
+            <input id="participant-starting-hp" type="number" placeholder="Starting HP" />
+            <input id="participant-starting-hp-percent" type="number" placeholder="Starting HP %" />
+            <input id="participant-slots-1" type="number" placeholder="Spell Slots L1" />
+            <input id="participant-slots-2" type="number" placeholder="Spell Slots L2" />
+            <input id="participant-slots-3" type="number" placeholder="Spell Slots L3" />
+            <input id="participant-hit-dice" type="number" placeholder="Hit Dice" />
+            <textarea id="participant-notes" placeholder="Notes"></textarea>
+            <button>Add Participant</button>
+        </form>
+    </section>
+
+    <section class="card">
         <h2>Encounter Review</h2>
 
         <div id="encounter-review">
@@ -23,7 +43,6 @@
             <p class="muted"><strong>Notes:</strong> <span id="review-notes">Loading...</span></p>
         </div>
     </section>
-
 
     <section class="card">
         <h2>Events</h2>
@@ -46,6 +65,8 @@
 const encounterId = Number(
     document.getElementById("encounter-page").dataset.encounterId
 );
+
+let campaignId = null;
 
 async function api(path, options = {}) {
     const response = await fetch(path, {
@@ -92,7 +113,110 @@ async function loadEncounter() {
     if (reviewExpected) {
         reviewExpected.textContent = expectedDifficultyText;
     }
+
+    // derive campaign from encounter -> session -> campaign
+    const session = await api(`/api/v1/sessions/${encounter.session_id}`);
+    campaignId = session.campaign_id;
 }
+
+async function loadCharacterOptions() {
+    const select = document.getElementById("participant-character-id");
+    select.innerHTML = `<option value="">Select character</option>`;
+
+    if (!campaignId) {
+        return;
+    }
+
+    const characters = await api(`/api/v1/campaigns/${campaignId}/characters`);
+
+    if (!characters.length) {
+        select.innerHTML = `<option value="">No characters available</option>`;
+        return;
+    }
+
+    for (const character of characters) {
+        const option = document.createElement("option");
+        option.value = character.id;
+        option.textContent =
+            `${character.name} (${character.role}` +
+            `${character.class_name ? ` | ${character.class_name}` : ""}` +
+            `${character.level ? ` | L${character.level}` : ""})`;
+        select.appendChild(option);
+    }
+}
+
+async function loadParticipants() {
+    const participants = await api(`/api/v1/encounters/${encounterId}/participants`);
+    const container = document.getElementById("participants");
+    container.innerHTML = "";
+
+    if (!participants.length) {
+        container.innerHTML = "<p class='muted'>No participants yet.</p>";
+        return;
+    }
+
+    for (const p of participants) {
+        const div = document.createElement("div");
+        div.className = "item";
+        div.innerHTML = `
+            <strong>Character ID: ${p.character_id}</strong><br>
+            <span class="muted">
+                Starting HP: ${p.starting_hp ?? "?"}
+                ${p.starting_hp_percent !== null && p.starting_hp_percent !== undefined ? ` | ${p.starting_hp_percent}%` : ""}
+            </span><br>
+            <span class="muted">
+                Slots: [${p.spell_slots_1_start ?? "-"}, ${p.spell_slots_2_start ?? "-"}, ${p.spell_slots_3_start ?? "-"}]
+                ${p.hit_dice_start !== null && p.hit_dice_start !== undefined ? ` | Hit Dice: ${p.hit_dice_start}` : ""}
+            </span><br>
+            <span class="muted">${p.notes || ""}</span>
+        `;
+        container.appendChild(div);
+    }
+}
+
+document.getElementById("participant-form").addEventListener("submit", async (e) => {
+    e.preventDefault();
+
+    const selectedCharacterId = document.getElementById("participant-character-id").value;
+
+    if (!selectedCharacterId) {
+        alert("Please select a character.");
+        return;
+    }
+
+    try {
+        await api(`/api/v1/encounters/${encounterId}/participants`, {
+            method: "POST",
+            body: JSON.stringify({
+                character_id: Number(selectedCharacterId),
+                starting_hp: document.getElementById("participant-starting-hp").value
+                    ? Number(document.getElementById("participant-starting-hp").value)
+                    : null,
+                starting_hp_percent: document.getElementById("participant-starting-hp-percent").value
+                    ? Number(document.getElementById("participant-starting-hp-percent").value)
+                    : null,
+                spell_slots_1_start: document.getElementById("participant-slots-1").value
+                    ? Number(document.getElementById("participant-slots-1").value)
+                    : null,
+                spell_slots_2_start: document.getElementById("participant-slots-2").value
+                    ? Number(document.getElementById("participant-slots-2").value)
+                    : null,
+                spell_slots_3_start: document.getElementById("participant-slots-3").value
+                    ? Number(document.getElementById("participant-slots-3").value)
+                    : null,
+                hit_dice_start: document.getElementById("participant-hit-dice").value
+                    ? Number(document.getElementById("participant-hit-dice").value)
+                    : null,
+                notes: document.getElementById("participant-notes").value || null
+            })
+        });
+
+        e.target.reset();
+        await loadParticipants();
+    } catch (err) {
+        alert(err.message);
+    }
+});
 
 async function loadEvents() {
     const events = await api(`/api/v1/encounters/${encounterId}/events`);
@@ -162,6 +286,8 @@ async function init() {
     await loadEncounter();
     await loadEvents();
     await loadEncounterReview();
+    await loadCharacterOptions();
+    await loadParticipants();
 }
 
 init();
