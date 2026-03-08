@@ -1,0 +1,175 @@
+{% extends "base.html" %}
+
+{% block title %}Campaign{% endblock %}
+
+{% block content %}
+<section class="card">
+    <h2 id="campaign-name">Campaign</h2>
+    <p id="campaign-description" class="muted"></p>
+        <div id="campaign-page" data-campaign-id="{{ campaign_id }}">
+            <p class="muted small">Campaign ID: <code id="campaign-id">{{ campaign_id }}</code></p>
+        </div>
+</section>
+
+<section class="card">
+    <h2>Sessions</h2>
+    <div id="sessions"></div>
+
+    <h3>Create Session</h3>
+    <form id="session-form">
+        <input id="session-date" placeholder="2026-03-08" required />
+        <input id="session-title" placeholder="Session title" />
+        <textarea id="session-notes" placeholder="Session notes"></textarea>
+        <input id="session-duration" type="number" placeholder="Duration minutes" />
+        <button type="submit">Create Session</button>
+    </form>
+</section>
+
+<section class="card">
+    <h2>Analytics</h2>
+
+    <h3>Damage Leaderboard</h3>
+    <div id="damage-leaderboard" class="muted">Loading...</div>
+
+    <h3>Event Breakdown</h3>
+    <div id="event-breakdown" class="muted">Loading...</div>
+
+    <h3>Encounter Difficulty</h3>
+    <div id="encounter-difficulty" class="muted">Loading...</div>
+</section>
+
+<script>
+
+const campaignId = Number(document.getElementById("campaign-page").dataset.campaignId);
+
+async function api(path, options = {}) {
+    const response = await fetch(path, {
+        headers: { "Content-Type": "application/json" },
+        ...options
+    });
+
+    if (!response.ok) {
+        let detail = "Request failed";
+        try {
+            const data = await response.json();
+            detail = data.detail || JSON.stringify(data);
+        } catch (_) {}
+        throw new Error(detail);
+    }
+
+    if (response.status === 204) return null;
+    return response.json();
+}
+
+async function loadCampaign() {
+    const campaign = await api(`/api/v1/campaigns/${campaignId}`);
+    document.getElementById("campaign-name").textContent = campaign.name;
+    document.getElementById("campaign-description").textContent = campaign.description || "No description provided.";
+}
+
+async function loadSessions() {
+    const sessions = await api(`/api/v1/campaigns/${campaignId}/sessions`);
+    const container = document.getElementById("sessions");
+    container.innerHTML = "";
+
+    if (!sessions.length) {
+        container.innerHTML = "<p class='muted'>No sessions yet.</p>";
+        return;
+    }
+
+    for (const s of sessions) {
+        const div = document.createElement("div");
+        div.className = "item";
+        div.innerHTML = `
+            <strong>${s.title || "Untitled session"}</strong><br>
+            <span class="muted">${s.date}</span><br>
+            <a href="/sessions/${s.id}/view">Open Session</a>
+        `;
+        container.appendChild(div);
+    }
+}
+
+async function loadDamageLeaderboard() {
+    const data = await api(`/api/v1/analytics/campaigns/${campaignId}/damage-leaderboard`);
+    const container = document.getElementById("damage-leaderboard");
+
+    if (!data.length) {
+        container.innerHTML = "<p class='muted'>No damage data yet.</p>";
+        return;
+    }
+
+    container.innerHTML = data.map(entry => `
+        <div class="item">
+            <strong>${entry.source || "Unknown"}</strong><br>
+            Total Damage: ${entry.total_damage}
+        </div>
+    `).join("");
+}
+
+async function loadEventBreakdown() {
+    const data = await api(`/api/v1/analytics/campaigns/${campaignId}/event-breakdown`);
+    const container = document.getElementById("event-breakdown");
+
+    if (!data.length) {
+        container.innerHTML = "<p class='muted'>No event data yet.</p>";
+        return;
+    }
+
+    container.innerHTML = data.map(entry => `
+        <div class="item">
+            <strong>${entry.kind}</strong><br>
+            Count: ${entry.count}
+        </div>
+    `).join("");
+}
+
+async function loadEncounterDifficulty() {
+    const data = await api(`/api/v1/analytics/campaigns/${campaignId}/encounter-difficulty`);
+    const container = document.getElementById("encounter-difficulty");
+
+    if (!data.length) {
+        container.innerHTML = "<p class='muted'>No encounter data yet.</p>";
+        return;
+    }
+
+    container.innerHTML = data.map(entry => `
+        <div class="item">
+            <strong>${entry.encounter_name}</strong><br>
+            Rounds: ${entry.rounds ?? "N/A"}<br>
+            Total Damage: ${entry.total_damage}<br>
+            Downs: ${entry.downs}
+        </div>
+    `).join("");
+}
+
+document.getElementById("session-form").addEventListener("submit", async (e) => {
+    e.preventDefault();
+
+    await api(`/api/v1/campaigns/${campaignId}/sessions`, {
+        method: "POST",
+        body: JSON.stringify({
+            date: document.getElementById("session-date").value,
+            title: document.getElementById("session-title").value || null,
+            notes: document.getElementById("session-notes").value || null,
+            duration_minutes: document.getElementById("session-duration").value
+                ? Number(document.getElementById("session-duration").value)
+                : null
+        })
+    });
+
+    e.target.reset();
+    await loadSessions();
+});
+
+async function init() {
+    await loadCampaign();
+    await loadSessions();
+    await loadDamageLeaderboard();
+    await loadEventBreakdown();
+    await loadEncounterDifficulty();
+}
+
+init();
+</script>
+{% endblock %}
+

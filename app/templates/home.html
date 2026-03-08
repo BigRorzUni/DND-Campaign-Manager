@@ -1,0 +1,63 @@
+{% extends "base.html" %}
+
+{% block title %}Home - DnD Campaign Manager{% endblock %}
+
+{% block content %}
+<section class="card">
+    <h2>Create Campaign</h2>
+    <form id="campaign-form">
+        <input id="name" placeholder="Campaign name" required />
+        <textarea id="description" placeholder="Description"></textarea>
+        <button type="submit">Create Campaign</button>
+    </form>
+</section>
+
+<section class="card">
+    <h2>Campaigns</h2>
+    <div id="campaigns"></div>
+</section>
+
+<script>
+async function loadCampaigns() {
+    const res = await fetch("/api/v1/campaigns");
+    const data = await res.json();
+
+    const container = document.getElementById("campaigns");
+    container.innerHTML = "";
+
+    if (!data.length) {
+        container.innerHTML = "<p class='muted'>No campaigns yet.</p>";
+        return;
+    }
+
+    for (const c of data) {
+        const div = document.createElement("div");
+        div.className = "item";
+        div.innerHTML = `
+            <strong>${c.name}</strong><br>
+            <span class="muted">${c.description ?? ""}</span><br>
+            <a href="/campaigns/${c.id}/view">Open</a>
+        `;
+        container.appendChild(div);
+    }
+}
+
+document.getElementById("campaign-form").addEventListener("submit", async (e) => {
+    e.preventDefault();
+
+    await fetch("/api/v1/campaigns", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+            name: document.getElementById("name").value,
+            description: document.getElementById("description").value || null
+        })
+    });
+
+    e.target.reset();
+    loadCampaigns();
+});
+
+loadCampaigns();
+</script>
+{% endblock %}
