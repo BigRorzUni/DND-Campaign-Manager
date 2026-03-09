@@ -1,6 +1,8 @@
-from sqlalchemy import ForeignKey, String, Integer
+from sqlalchemy import ForeignKey, Integer, String
 from sqlalchemy.orm import Mapped, mapped_column, relationship
+
 from app.db.base import Base
+
 
 class Encounter(Base):
     __tablename__ = "encounters"
@@ -9,7 +11,7 @@ class Encounter(Base):
 
     session_id: Mapped[int] = mapped_column(
         ForeignKey("sessions.id", ondelete="CASCADE"),
-        nullable=False
+        nullable=False,
     )
 
     name: Mapped[str] = mapped_column(String(200), nullable=False)
@@ -21,10 +23,10 @@ class Encounter(Base):
 
     events: Mapped[list["Event"]] = relationship(
         back_populates="encounter",
-        cascade="all, delete-orphan"
+        cascade="all, delete-orphan",
     )
 
-    participants: Mapped[list["EncounterParticipantState"]] = relationship(
+    participants: Mapped[list["EncounterParticipant"]] = relationship(
         back_populates="encounter",
-        cascade="all, delete-orphan"
+        cascade="all, delete-orphan",
     )

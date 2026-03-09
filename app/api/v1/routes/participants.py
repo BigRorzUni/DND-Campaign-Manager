@@ -6,7 +6,6 @@ from app.models.character import Character
 from app.models.encounter import Encounter
 from app.models.session import Session
 from app.repositories.participant_repo import ParticipantRepo
-from app.models.encounter_participant_state import EncounterParticipantState
 from app.schemas.participant import EncounterParticipantCreate, EncounterParticipantOut
 
 router = APIRouter(tags=["participants"])
@@ -27,68 +26,71 @@ def create_participant(
     if not encounter:
         raise HTTPException(status_code=404, detail="Encounter not found")
 
-    character = db.get(Character, payload.character_id)
-    if not character:
-        raise HTTPException(status_code=404, detail="Character not found")
-
-    # make sure the character belongs to the same campaign as the encounter
     encounter_session = db.get(Session, encounter.session_id)
     if not encounter_session:
         raise HTTPException(status_code=404, detail="Session not found")
 
-    if character.campaign_id != encounter_session.campaign_id:
+    if payload.character_id is not None:
+        character = db.get(Character, payload.character_id)
+        if not character:
+            raise HTTPException(status_code=404, detail="Character not found")
+
+        if character.campaign_id != encounter_session.campaign_id:
+            raise HTTPException(
+                status_code=400,
+                detail="Character does not belong to the same campaign as this encounter",
+            )
+
+        participant = participant_repo.create(
+            db,
+            encounter_id=encounter_id,
+            character_id=character.id,
+            name=character.name,
+            participant_type=payload.participant_type,
+            class_name=character.class_name,
+            level=character.level,
+            max_hp=payload.max_hp if payload.max_hp is not None else character.max_hp,
+            current_hp=payload.current_hp,
+            spell_slots_1=payload.spell_slots_1,
+            spell_slots_2=payload.spell_slots_2,
+            spell_slots_3=payload.spell_slots_3,
+            notes=payload.notes,
+        )
+        return participant
+
+    if not payload.name:
         raise HTTPException(
             status_code=400,
-            detail="Character does not belong to the same campaign as this encounter",
+            detail="Name is required for non-character participants",
         )
 
     return participant_repo.create(
         db,
         encounter_id=encounter_id,
-        character_id=payload.character_id,
-        starting_hp=payload.starting_hp,
-        starting_hp_percent=payload.starting_hp_percent,
-        spell_slots_1_start=payload.spell_slots_1_start,
-        spell_slots_2_start=payload.spell_slots_2_start,
-        spell_slots_3_start=payload.spell_slots_3_start,
-        hit_dice_start=payload.hit_dice_start,
+        character_id=None,
+        name=payload.name,
+        participant_type=payload.participant_type,
+        class_name=payload.class_name,
+        level=payload.level,
+        max_hp=payload.max_hp,
+        current_hp=payload.current_hp,
+        spell_slots_1=payload.spell_slots_1,
+        spell_slots_2=payload.spell_slots_2,
+        spell_slots_3=payload.spell_slots_3,
         notes=payload.notes,
     )
+
 
 @router.get(
     "/encounters/{encounter_id}/participants",
     response_model=list[EncounterParticipantOut],
 )
 def list_participants(encounter_id: int, db: DbSession = Depends(get_db)):
-    rows = (
-        db.query(EncounterParticipantState, Character)
-        .join(Character, Character.id == EncounterParticipantState.character_id)
-        .filter(EncounterParticipantState.encounter_id == encounter_id)
-        .all()
-    )
+    encounter = db.get(Encounter, encounter_id)
+    if not encounter:
+        raise HTTPException(status_code=404, detail="Encounter not found")
 
-    results = []
-
-    for participant, character in rows:
-        results.append(
-            EncounterParticipantOut(
-                id=participant.id,
-                encounter_id=participant.encounter_id,
-                character_id=participant.character_id,
-                character_name=character.name,
-                character_class=character.class_name,
-                character_level=character.level,
-                starting_hp=participant.starting_hp,
-                starting_hp_percent=participant.starting_hp_percent,
-                spell_slots_1_start=participant.spell_slots_1_start,
-                spell_slots_2_start=participant.spell_slots_2_start,
-                spell_slots_3_start=participant.spell_slots_3_start,
-                hit_dice_start=participant.hit_dice_start,
-                notes=participant.notes,
-            )
-        )
-
-    return results
+    return participant_repo.list_for_encounter(db, encounter_id)
 
 
 @router.delete("/participants/{participant_id}", status_code=status.HTTP_204_NO_CONTENT)

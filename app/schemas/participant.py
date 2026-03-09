@@ -1,30 +1,42 @@
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 
 class EncounterParticipantCreate(BaseModel):
-    character_id: int
-    starting_hp: int | None = None
-    starting_hp_percent: float | None = None
-    spell_slots_1_start: int | None = None
-    spell_slots_2_start: int | None = None
-    spell_slots_3_start: int | None = None
-    hit_dice_start: int | None = None
-    notes: str | None = None
+    character_id: int | None = None
+    name: str | None = Field(default=None, max_length=200)
+    participant_type: str = Field(min_length=1, max_length=50)
+
+    class_name: str | None = Field(default=None, max_length=100)
+    level: int | None = Field(default=None, ge=1)
+
+    max_hp: int | None = Field(default=None, ge=0)
+    current_hp: int | None = Field(default=None, ge=0)
+
+    spell_slots_1: int | None = Field(default=None, ge=0)
+    spell_slots_2: int | None = Field(default=None, ge=0)
+    spell_slots_3: int | None = Field(default=None, ge=0)
+
+    notes: str | None = Field(default=None, max_length=1000)
 
 
 class EncounterParticipantOut(BaseModel):
     id: int
     encounter_id: int
-    character_id: int
+    character_id: int | None
 
-    character_name: str | None = None
-    character_class: str | None = None
-    character_level: int | None = None
+    name: str
+    participant_type: str
 
-    starting_hp: int | None = None
-    starting_hp_percent: float | None = None
-    spell_slots_1_start: int | None = None
-    spell_slots_2_start: int | None = None
-    spell_slots_3_start: int | None = None
-    hit_dice_start: int | None = None
-    notes: str | None = None
+    class_name: str | None
+    level: int | None
+
+    max_hp: int | None
+    current_hp: int | None
+
+    spell_slots_1: int | None
+    spell_slots_2: int | None
+    spell_slots_3: int | None
+
+    notes: str | None
+
+    model_config = {"from_attributes": True}

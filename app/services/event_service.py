@@ -1,7 +1,7 @@
+from fastapi import HTTPException
 from sqlalchemy.orm import Session as DbSession
 
-from app.models.character import Character
-from app.models.character_resource_state import CharacterResourceState
+from app.models.encounter_participant import EncounterParticipant
 from app.models.event import Event
 from app.repositories.event_repo import EventRepo
 
@@ -16,162 +16,151 @@ class EventService:
         *,
         encounter_id: int,
         kind: str,
-        source: str | None,
-        target: str | None,
-        source_character_id: int | None,
-        target_character_id: int | None,
+        source_participant_id: int | None,
+        target_participant_id: int | None,
         amount: int | None,
-        slot_level_used: int | None,
-        slots_consumed: int | None,
+        spell_slots_consumed: int | None,
         detail: str | None,
     ) -> Event:
+        normalized_kind = kind.upper()
+
+        self._validate_event_payload(
+            normalized_kind,
+            amount,
+            spell_slots_consumed,
+        )
+
         event = self.event_repo.create(
             db,
             encounter_id=encounter_id,
-            kind=kind,
-            source=source,
-            target=target,
-            source_character_id=source_character_id,
-            target_character_id=target_character_id,
+            kind=normalized_kind,
+            source_participant_id=source_participant_id,
+            target_participant_id=target_participant_id,
             amount=amount,
-            slot_level_used=slot_level_used,
-            slots_consumed=slots_consumed,
+            spell_slots_consumed=spell_slots_consumed,
             detail=detail,
         )
 
         self.apply_event_side_effects(db, event)
         return event
 
+    def _validate_event_payload(
+        self,
+        kind: str,
+        amount: int | None,
+        spell_slots_consumed: int | None,
+    ) -> None:
+        if kind in {"DAMAGE", "HEAL"} and amount is None:
+            raise HTTPException(
+                status_code=400,
+                detail=f"{kind} events require an amount",
+            )
+
+        if kind == "SPELL" and amount is not None:
+            raise HTTPException(
+                status_code=400,
+                detail="SPELL events should not include an amount; use DAMAGE or HEAL for numeric spell effects",
+            )
+
+        if kind not in {"DAMAGE", "HEAL", "SPELL", "MISC"}:
+            raise HTTPException(
+                status_code=400,
+                detail="Invalid event kind",
+            )
+
+        if spell_slots_consumed is not None and spell_slots_consumed < 0:
+            raise HTTPException(
+                status_code=400,
+                detail="spell_slots_consumed cannot be negative",
+            )
+
     def apply_event_side_effects(self, db: DbSession, event: Event) -> None:
         kind = event.kind.upper()
 
         if kind == "DAMAGE":
-            self._apply_damage(db, event.target_character_id, event.amount)
+            self._apply_damage(db, event.target_participant_id, event.amount)
+            self._apply_spell_cost(db, event.source_participant_id, event.spell_slots_consumed)
 
         elif kind == "HEAL":
-            self._apply_heal(db, event.target_character_id, event.amount)
-
-        elif kind == "DOWN":
-            self._apply_down(db, event.target_character_id)
+            self._apply_heal(db, event.target_participant_id, event.amount)
+            self._apply_spell_cost(db, event.source_participant_id, event.spell_slots_consumed)
 
         elif kind == "SPELL":
-            self._apply_spell_slot_use(
-                db,
-                event.source_character_id,
-                event.slot_level_used,
-                event.slots_consumed,
-            )
+            self._apply_spell_cost(db, event.source_participant_id, event.spell_slots_consumed)
 
-    def _get_resource_state(
+    def _get_participant(
         self,
         db: DbSession,
-        character_id: int | None,
-    ) -> CharacterResourceState | None:
-        if character_id is None:
+        participant_id: int | None,
+    ) -> EncounterParticipant | None:
+        if participant_id is None:
             return None
-
-        return (
-            db.query(CharacterResourceState)
-            .filter(CharacterResourceState.character_id == character_id)
-            .first()
-        )
-
-    def _get_character(
-        self,
-        db: DbSession,
-        character_id: int | None,
-    ) -> Character | None:
-        if character_id is None:
-            return None
-        return db.get(Character, character_id)
+        return db.get(EncounterParticipant, participant_id)
 
     def _apply_damage(
         self,
         db: DbSession,
-        target_character_id: int | None,
+        target_participant_id: int | None,
         amount: int | None,
     ) -> None:
-        if target_character_id is None or amount is None:
+        if target_participant_id is None or amount is None:
             return
 
-        resource_state = self._get_resource_state(db, target_character_id)
-        if resource_state is None or resource_state.current_hp is None:
+        participant = self._get_participant(db, target_participant_id)
+        if participant is None or participant.current_hp is None:
             return
 
-        resource_state.current_hp = max(0, resource_state.current_hp - amount)
+        participant.current_hp = max(0, participant.current_hp - amount)
         db.commit()
-        db.refresh(resource_state)
+        db.refresh(participant)
 
     def _apply_heal(
         self,
         db: DbSession,
-        target_character_id: int | None,
+        target_participant_id: int | None,
         amount: int | None,
     ) -> None:
-        if target_character_id is None or amount is None:
+        if target_participant_id is None or amount is None:
             return
 
-        resource_state = self._get_resource_state(db, target_character_id)
-        character = self._get_character(db, target_character_id)
-
-        if resource_state is None or resource_state.current_hp is None:
+        participant = self._get_participant(db, target_participant_id)
+        if participant is None or participant.current_hp is None:
             return
 
-        new_hp = resource_state.current_hp + amount
+        new_hp = participant.current_hp + amount
+        if participant.max_hp is not None:
+            new_hp = min(new_hp, participant.max_hp)
 
-        if character is not None and character.max_hp is not None:
-            new_hp = min(new_hp, character.max_hp)
-
-        resource_state.current_hp = new_hp
+        participant.current_hp = new_hp
         db.commit()
-        db.refresh(resource_state)
+        db.refresh(participant)
 
-    def _apply_down(
+    def _apply_spell_cost(
         self,
         db: DbSession,
-        target_character_id: int | None,
+        source_participant_id: int | None,
+        spell_slots_consumed: int | None,
     ) -> None:
-        if target_character_id is None:
+        if source_participant_id is None or spell_slots_consumed is None or spell_slots_consumed <= 0:
             return
 
-        resource_state = self._get_resource_state(db, target_character_id)
-        if resource_state is None:
+        participant = self._get_participant(db, source_participant_id)
+        if participant is None:
             return
 
-        resource_state.current_hp = 0
-        db.commit()
-        db.refresh(resource_state)
+        remaining = spell_slots_consumed
 
-    def _apply_spell_slot_use(
-        self,
-        db: DbSession,
-        source_character_id: int | None,
-        slot_level_used: int | None,
-        slots_consumed: int | None,
-    ) -> None:
-        if source_character_id is None or slot_level_used is None:
-            return
+        for attr in ["spell_slots_1", "spell_slots_2", "spell_slots_3"]:
+            current = getattr(participant, attr)
+            if current is None or current <= 0:
+                continue
 
-        spent = slots_consumed if slots_consumed is not None else 1
+            used_here = min(current, remaining)
+            setattr(participant, attr, current - used_here)
+            remaining -= used_here
 
-        resource_state = self._get_resource_state(db, source_character_id)
-        if resource_state is None:
-            return
-
-        if slot_level_used == 1 and resource_state.spell_slots_1_current is not None:
-            resource_state.spell_slots_1_current = max(
-                0, resource_state.spell_slots_1_current - spent
-            )
-
-        elif slot_level_used == 2 and resource_state.spell_slots_2_current is not None:
-            resource_state.spell_slots_2_current = max(
-                0, resource_state.spell_slots_2_current - spent
-            )
-
-        elif slot_level_used == 3 and resource_state.spell_slots_3_current is not None:
-            resource_state.spell_slots_3_current = max(
-                0, resource_state.spell_slots_3_current - spent
-            )
+            if remaining == 0:
+                break
 
         db.commit()
-        db.refresh(resource_state)
+        db.refresh(participant)
