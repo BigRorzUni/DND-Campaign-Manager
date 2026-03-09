@@ -14,6 +14,38 @@
     </section>
 
     <section class="card">
+        <h2>Participants</h2>
+        <div id="participants"></div>
+
+        <h3>Add Party Character</h3>
+        <form id="participant-form">
+            <select id="participant-character-id" required>
+                <option value="">Select character</option>
+            </select>
+            <input id="participant-current-hp" type="number" placeholder="Current HP" />
+            <input id="participant-slots-1" type="number" placeholder="Spell Slots L1" />
+            <input id="participant-slots-2" type="number" placeholder="Spell Slots L2" />
+            <input id="participant-slots-3" type="number" placeholder="Spell Slots L3" />
+            <textarea id="participant-notes" placeholder="Notes"></textarea>
+            <button type="submit">Add Party Character</button>
+        </form>
+        
+        <h3>Add Other Participant</h3>
+        <form id="custom-participant-form">
+            <input id="custom-participant-name" placeholder="Name" required />
+            <input id="custom-participant-class-name" placeholder="Class / type" />
+            <input id="custom-participant-level" type="number" placeholder="Level (optional)" />
+            <input id="custom-participant-max-hp" type="number" placeholder="Max HP" />
+            <input id="custom-participant-current-hp" type="number" placeholder="Current HP" />
+            <input id="custom-participant-slots-1" type="number" placeholder="Spell Slots L1" />
+            <input id="custom-participant-slots-2" type="number" placeholder="Spell Slots L2" />
+            <input id="custom-participant-slots-3" type="number" placeholder="Spell Slots L3" />
+            <textarea id="custom-participant-notes" placeholder="Notes"></textarea>
+            <button type="submit">Add Other Participant</button>
+        </form>
+    </section>
+
+    <section class="card">
         <h2>Encounter Review</h2>
 
         <div id="encounter-review">
@@ -24,28 +56,53 @@
         </div>
     </section>
 
-
     <section class="card">
         <h2>Events</h2>
         <div id="events"></div>
 
         <h3>Create Event</h3>
         <form id="event-form">
-            <input id="event-kind" placeholder="DAMAGE / HEAL / SPELL / DOWN" required />
-            <input id="event-source" placeholder="Source" />
-            <input id="event-target" placeholder="Target" />
-            <input id="event-amount" type="number" placeholder="Amount" />
+            <select id="event-kind" required>
+                <option value="">Select event kind</option>
+                <option value="DAMAGE">DAMAGE</option>
+                <option value="HEAL">HEAL</option>
+                <option value="SPELL">SPELL</option>
+                <option value="MISC">MISC</option>
+            </select>
+
+            <label for="event-source-select">Source</label>
+            <select id="event-source-select">
+                <option value="">Select source</option>
+            </select>
+
+            <label for="event-target-select">Target</label>
+            <select id="event-target-select">
+                <option value="">Select target</option>
+            </select>
+
+            <div id="amount-fields" style="display: none;">
+                <input id="event-amount" type="number" placeholder="Amount" />
+            </div>
+
+            <div id="spell-fields" style="display: none;">
+                <input id="event-spell-slots-consumed" type="number" min="0" placeholder="Spell slots used (optional)" />
+            </div>
+
             <textarea id="event-detail" placeholder="Detail"></textarea>
-            <button>Create Event</button>
+            <button type="submit">Create Event</button>
         </form>
     </section>
 
 </div>
 
 <script>
+let participantsCache = [];
+
 const encounterId = Number(
     document.getElementById("encounter-page").dataset.encounterId
 );
+
+let campaignId = null;
 
 async function api(path, options = {}) {
     const response = await fetch(path, {
@@ -64,6 +121,60 @@ async function api(path, options = {}) {
 
     if (response.status === 204) return null;
     return response.json();
+}
+
+function populateEventParticipantSelectors() {
+    const sourceSelect = document.getElementById("event-source-select");
+    const targetSelect = document.getElementById("event-target-select");
+
+    sourceSelect.innerHTML = `<option value="">Select source</option>`;
+    targetSelect.innerHTML = `<option value="">Select target</option>`;
+
+    for (const p of participantsCache) {
+        const label = `${p.name} (${p.participant_type})`;
+
+        const sourceOption = document.createElement("option");
+        sourceOption.value = String(p.id);
+        sourceOption.textContent = label;
+        sourceSelect.appendChild(sourceOption);
+
+        const targetOption = document.createElement("option");
+        targetOption.value = String(p.id);
+        targetOption.textContent = label;
+        targetSelect.appendChild(targetOption);
+    }
+}
+
+function toggleCustomParticipantInput(selectId, inputId) {
+    const select = document.getElementById(selectId);
+    const input = document.getElementById(inputId);
+
+    if (select.value === "__custom__") {
+        input.style.display = "block";
+    } else {
+        input.style.display = "none";
+        input.value = "";
+    }
+}
+
+function toggleEventFields() {
+    const kind = document.getElementById("event-kind").value;
+    const amountFields = document.getElementById("amount-fields");
+    const spellFields = document.getElementById("spell-fields");
+
+    if (kind === "DAMAGE" || kind === "HEAL") {
+        amountFields.style.display = "block";
+    } else {
+        amountFields.style.display = "none";
+        document.getElementById("event-amount").value = "";
+    }
+
+    if (kind === "DAMAGE" || kind === "HEAL" || kind === "SPELL") {
+        spellFields.style.display = "block";
+    } else {
+        spellFields.style.display = "none";
+        document.getElementById("event-spell-slots-consumed").value = "";
+    }
 }
 
 async function loadEncounter() {
@@ -85,12 +196,74 @@ async function loadEncounter() {
     document.getElementById("encounter-notes").textContent =
         encounter.notes || "";
 
-    const expectedDifficultyText =
-        encounter.expected_difficulty || "Not set";
-
     const reviewExpected = document.getElementById("review-expected");
     if (reviewExpected) {
-        reviewExpected.textContent = expectedDifficultyText;
+        reviewExpected.textContent = encounter.expected_difficulty || "Not set";
+    }
+
+    const session = await api(`/api/v1/sessions/${encounter.session_id}`);
+    campaignId = session.campaign_id;
+}
+
+async function loadCharacterOptions() {
+    const select = document.getElementById("participant-character-id");
+    select.innerHTML = `<option value="">Select character</option>`;
+
+    if (!campaignId) {
+        console.log("No campaignId available yet");
+        return;
+    }
+
+    const characters = await api(`/api/v1/campaigns/${campaignId}/characters`);
+    console.log("Loaded characters for participant dropdown:", characters);
+
+    if (!characters.length) {
+        select.innerHTML = `<option value="">No characters available</option>`;
+        return;
+    }
+
+    for (const character of characters) {
+        const option = document.createElement("option");
+        option.value = character.id;
+        option.textContent =
+            `${character.name} (${character.role}` +
+            `${character.class_name ? ` | ${character.class_name}` : ""}` +
+            `${character.level ? ` | L${character.level}` : ""})`;
+        select.appendChild(option);
+    }
+}
+
+async function loadParticipants() {
+    const participants = await api(`/api/v1/encounters/${encounterId}/participants`);
+    participantsCache = participants;
+
+    const container = document.getElementById("participants");
+    container.innerHTML = "";
+
+    populateEventParticipantSelectors();
+
+    if (!participants.length) {
+        container.innerHTML = "<p class='muted'>No participants yet.</p>";
+        return;
+    }
+
+    for (const p of participants) {
+        const div = document.createElement("div");
+        div.className = "item";
+
+        div.innerHTML = `
+            <strong>${p.name}</strong> (${p.participant_type})<br>
+            ${p.class_name ? `Class/Type: ${p.class_name}<br>` : ""}
+            ${p.level !== null && p.level !== undefined ? `Level: ${p.level}<br>` : ""}
+            ${p.max_hp !== null && p.max_hp !== undefined ? `Max HP: ${p.max_hp}<br>` : ""}
+            ${p.current_hp !== null && p.current_hp !== undefined ? `Current HP: ${p.current_hp}<br>` : ""}
+            ${p.spell_slots_1 !== null && p.spell_slots_1 !== undefined ? `Spell Slots L1: ${p.spell_slots_1}<br>` : ""}
+            ${p.spell_slots_2 !== null && p.spell_slots_2 !== undefined ? `Spell Slots L2: ${p.spell_slots_2}<br>` : ""}
+            ${p.spell_slots_3 !== null && p.spell_slots_3 !== undefined ? `Spell Slots L3: ${p.spell_slots_3}<br>` : ""}
+            ${p.notes ? `${p.notes}<br>` : ""}
+        `;
+
+        container.appendChild(div);
     }
 }
 
@@ -105,14 +278,25 @@ async function loadEvents() {
     }
 
     for (const e of events) {
+        const sourceParticipant = participantsCache.find(
+            (p) => p.id === e.source_participant_id
+        );
+        const targetParticipant = participantsCache.find(
+            (p) => p.id === e.target_participant_id
+        );
+
+        const sourceName = sourceParticipant ? sourceParticipant.name : "Unknown";
+        const targetName = targetParticipant ? targetParticipant.name : "Unknown";
+
         const div = document.createElement("div");
         div.className = "item";
 
         div.innerHTML = `
             <strong>${e.kind}</strong><br>
             <span class="muted">
-                ${e.source || "Unknown"} → ${e.target || "Unknown"}
+                ${sourceName} → ${targetName}
                 ${e.amount !== null && e.amount !== undefined ? ` | ${e.amount}` : ""}
+                ${e.spell_slots_consumed !== null && e.spell_slots_consumed !== undefined ? ` | spell slots used: ${e.spell_slots_consumed}` : ""}
             </span><br>
             <span class="muted">${e.detail || ""}</span>
         `;
@@ -137,31 +321,145 @@ async function loadEncounterReview() {
         review.notes;
 }
 
+document.getElementById("event-source-select").addEventListener("change", () => {
+    toggleCustomParticipantInput("event-source-select", "event-source-custom");
+});
+
+document.getElementById("event-target-select").addEventListener("change", () => {
+    toggleCustomParticipantInput("event-target-select", "event-target-custom");
+});
+
+document.getElementById("event-kind").addEventListener("change", toggleEventFields);
+
+document.getElementById("participant-form").addEventListener("submit", async (e) => {
+    e.preventDefault();
+
+    const selectedCharacterId = document.getElementById("participant-character-id").value;
+
+    if (!selectedCharacterId) {
+        alert("Please select a character.");
+        return;
+    }
+
+    try {
+        await api(`/api/v1/encounters/${encounterId}/participants`, {
+            method: "POST",
+            body: JSON.stringify({
+                character_id: Number(selectedCharacterId),
+                participant_type: "PARTY",
+                current_hp: document.getElementById("participant-current-hp").value
+                    ? Number(document.getElementById("participant-current-hp").value)
+                    : null,
+                spell_slots_1: document.getElementById("participant-slots-1").value
+                    ? Number(document.getElementById("participant-slots-1").value)
+                    : null,
+                spell_slots_2: document.getElementById("participant-slots-2").value
+                    ? Number(document.getElementById("participant-slots-2").value)
+                    : null,
+                spell_slots_3: document.getElementById("participant-slots-3").value
+                    ? Number(document.getElementById("participant-slots-3").value)
+                    : null,
+                notes: document.getElementById("participant-notes").value || null
+            })
+        });
+
+        e.target.reset();
+        await loadParticipants();
+    } catch (err) {
+        alert(err.message);
+    }
+});
+
+document.getElementById("custom-participant-form").addEventListener("submit", async (e) => {
+    e.preventDefault();
+
+    try {
+        await api(`/api/v1/encounters/${encounterId}/participants`, {
+            method: "POST",
+            body: JSON.stringify({
+                character_id: null,
+                name: document.getElementById("custom-participant-name").value,
+                participant_type: "OTHER",
+                class_name: document.getElementById("custom-participant-class-name").value || null,
+                level: document.getElementById("custom-participant-level").value
+                    ? Number(document.getElementById("custom-participant-level").value)
+                    : null,
+                max_hp: document.getElementById("custom-participant-max-hp").value
+                    ? Number(document.getElementById("custom-participant-max-hp").value)
+                    : null,
+                current_hp: document.getElementById("custom-participant-current-hp").value
+                    ? Number(document.getElementById("custom-participant-current-hp").value)
+                    : null,
+                spell_slots_1: document.getElementById("custom-participant-slots-1").value
+                    ? Number(document.getElementById("custom-participant-slots-1").value)
+                    : null,
+                spell_slots_2: document.getElementById("custom-participant-slots-2").value
+                    ? Number(document.getElementById("custom-participant-slots-2").value)
+                    : null,
+                spell_slots_3: document.getElementById("custom-participant-slots-3").value
+                    ? Number(document.getElementById("custom-participant-slots-3").value)
+                    : null,
+                notes: document.getElementById("custom-participant-notes").value || null
+            })
+        });
+
+        e.target.reset();
+        await loadParticipants();
+    } catch (err) {
+        alert(err.message);
+    }
+});
+
 document.getElementById("event-form").addEventListener("submit", async (e) => {
     e.preventDefault();
 
-    await api(`/api/v1/encounters/${encounterId}/events`, {
-        method: "POST",
-        body: JSON.stringify({
-            kind: document.getElementById("event-kind").value,
-            source: document.getElementById("event-source").value || null,
-            target: document.getElementById("event-target").value || null,
-            amount: document.getElementById("event-amount").value
-                ? Number(document.getElementById("event-amount").value)
-                : null,
-            detail: document.getElementById("event-detail").value || null
-        })
-    });
+    const kind = document.getElementById("event-kind").value;
 
-    e.target.reset();
-    await loadEvents();
-    await loadEncounterReview();
+    const payload = {
+        kind: kind,
+        source_participant_id: document.getElementById("event-source-select").value
+            ? Number(document.getElementById("event-source-select").value)
+            : null,
+        target_participant_id: document.getElementById("event-target-select").value
+            ? Number(document.getElementById("event-target-select").value)
+            : null,
+        amount: (kind === "DAMAGE" || kind === "HEAL") && document.getElementById("event-amount").value
+            ? Number(document.getElementById("event-amount").value)
+            : null,
+        spell_slots_consumed: (kind === "DAMAGE" || kind === "HEAL" || kind === "SPELL") &&
+            document.getElementById("event-spell-slots-consumed").value
+            ? Number(document.getElementById("event-spell-slots-consumed").value)
+            : null,
+        detail: document.getElementById("event-detail").value || null
+    };
+
+    try {
+        await api(`/api/v1/encounters/${encounterId}/events`, {
+            method: "POST",
+            body: JSON.stringify(payload)
+        });
+
+        e.target.reset();
+        toggleEventFields();
+
+        await loadParticipants();
+        await loadEvents();
+        await loadEncounterReview();
+    } catch (err) {
+        alert(err.message);
+    }
 });
-
 async function init() {
-    await loadEncounter();
-    await loadEvents();
-    await loadEncounterReview();
+    try {
+        await loadEncounter();
+        await loadCharacterOptions();
+        await loadParticipants();
+        await loadEvents();
+        await loadEncounterReview();
+    } catch (err) {
+        console.error("Encounter page init failed:", err);
+        alert(err.message);
+    }
 }
 
 init();

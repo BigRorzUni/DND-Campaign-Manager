@@ -1,4 +1,5 @@
 from sqlalchemy.orm import Session as DbSession
+
 from app.models.event import Event
 
 
@@ -9,18 +10,20 @@ class EventRepo:
         *,
         encounter_id: int,
         kind: str,
-        source: str | None,
-        target: str | None,
+        source_participant_id: int | None,
+        target_participant_id: int | None,
         amount: int | None,
-        detail: str | None
+        spell_slots_consumed: int | None,
+        detail: str | None,
     ) -> Event:
         obj = Event(
             encounter_id=encounter_id,
             kind=kind,
-            source=source,
-            target=target,
+            source_participant_id=source_participant_id,
+            target_participant_id=target_participant_id,
             amount=amount,
-            detail=detail
+            spell_slots_consumed=spell_slots_consumed,
+            detail=detail,
         )
         db.add(obj)
         db.commit()
@@ -37,32 +40,6 @@ class EventRepo:
             .order_by(Event.id.desc())
             .all()
         )
-
-    def update(
-        self,
-        db: DbSession,
-        obj: Event,
-        *,
-        kind: str | None,
-        source: str | None,
-        target: str | None,
-        amount: int | None,
-        detail: str | None
-    ) -> Event:
-        if kind is not None:
-            obj.kind = kind
-        if source is not None:
-            obj.source = source
-        if target is not None:
-            obj.target = target
-        if amount is not None:
-            obj.amount = amount
-        if detail is not None:
-            obj.detail = detail
-
-        db.commit()
-        db.refresh(obj)
-        return obj
 
     def delete(self, db: DbSession, obj: Event) -> None:
         db.delete(obj)

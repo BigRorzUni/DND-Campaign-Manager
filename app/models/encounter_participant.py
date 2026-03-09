@@ -1,0 +1,38 @@
+from sqlalchemy import ForeignKey, Integer, String
+from sqlalchemy.orm import Mapped, mapped_column, relationship
+
+from app.db.base import Base
+
+
+class EncounterParticipant(Base):
+    __tablename__ = "encounter_participants"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+
+    encounter_id: Mapped[int] = mapped_column(
+        ForeignKey("encounters.id", ondelete="CASCADE"),
+        nullable=False,
+    )
+
+    character_id: Mapped[int | None] = mapped_column(
+        ForeignKey("characters.id", ondelete="SET NULL"),
+        nullable=True,
+    )
+
+    name: Mapped[str] = mapped_column(String(200), nullable=False)
+    participant_type: Mapped[str] = mapped_column(String(50), nullable=False)
+
+    class_name: Mapped[str | None] = mapped_column(String(100))
+    level: Mapped[int | None] = mapped_column(Integer)
+
+    max_hp: Mapped[int | None] = mapped_column(Integer)
+    current_hp: Mapped[int | None] = mapped_column(Integer)
+
+    spell_slots_1: Mapped[int | None] = mapped_column(Integer)
+    spell_slots_2: Mapped[int | None] = mapped_column(Integer)
+    spell_slots_3: Mapped[int | None] = mapped_column(Integer)
+
+    notes: Mapped[str | None] = mapped_column(String(1000))
+
+    encounter: Mapped["Encounter"] = relationship(back_populates="participants")
+    character: Mapped["Character | None"] = relationship()
