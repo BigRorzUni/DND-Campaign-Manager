@@ -17,9 +17,11 @@
 
     <div id="encounters"></div>
 
-    <h3>Create Encounter</h3>
+    <h3 id="encounter-form-heading">Create Encounter</h3>
 
     <form id="encounter-form">
+        <input type="hidden" id="encounter-id">
+
         <input id="encounter-name" placeholder="Encounter name" required>
 
         <input id="encounter-difficulty"
@@ -32,7 +34,8 @@
         <textarea id="encounter-notes"
                   placeholder="Encounter notes"></textarea>
 
-        <button>Create Encounter</button>
+        <button type="submit" id="encounter-submit-btn">Create Encounter</button>
+        <button type="button" id="encounter-cancel-btn" style="display:none;">Cancel Edit</button>
     </form>
 
 </section>
@@ -44,6 +47,9 @@
 const sessionId = Number(
     document.getElementById("session-page").dataset.sessionId
 );
+
+let encountersCache = [];
+let editingEncounterId = null;
 
 async function api(path, options = {}) {
 
@@ -86,6 +92,8 @@ async function loadEncounters() {
     const encounters =
         await api(`/api/v1/sessions/${sessionId}/encounters`);
 
+    encountersCache = encounters;
+
     const container = document.getElementById("encounters");
 
     container.innerHTML = "";
@@ -108,11 +116,71 @@ async function loadEncounters() {
             <strong>${e.name}</strong><br>
             <span class="muted">
                 ${e.expected_difficulty || "Difficulty not set"}
+                ${e.rounds !== null && e.rounds !== undefined ? ` | Rounds: ${e.rounds}` : ""}
             </span><br>
-            <a href="/encounters/${e.id}/view">Open Encounter</a>
+            <span class="muted">${e.notes || ""}</span><br>
+            <a href="/encounters/${e.id}/view">Open Encounter</a><br>
+            <button type="button" onclick="startEditEncounter(${e.id})">Edit</button>
+            <button type="button" onclick="deleteEncounter(${e.id})">Delete</button>
         `;
 
         container.appendChild(div);
+    }
+}
+
+function startEditEncounter(encounterId) {
+    const e = encountersCache.find(en => en.id === encounterId);
+    if (!e) return;
+
+    editingEncounterId = e.id;
+
+    document.getElementById("encounter-id").value = e.id;
+    document.getElementById("encounter-name").value = e.name || "";
+    document.getElementById("encounter-difficulty").value = e.expected_difficulty || "";
+    document.getElementById("encounter-rounds").value = e.rounds ?? "";
+    document.getElementById("encounter-notes").value = e.notes || "";
+
+    document.getElementById("encounter-form-heading").textContent = "Edit Encounter";
+    document.getElementById("encounter-submit-btn").textContent = "Save Changes";
+    document.getElementById("encounter-cancel-btn").style.display = "inline-block";
+
+    window.scrollTo({
+        top: document.getElementById("encounter-form-heading").offsetTop - 40,
+        behavior: "smooth"
+    });
+}
+
+function resetEncounterForm() {
+    editingEncounterId = null;
+
+    document.getElementById("encounter-form").reset();
+    document.getElementById("encounter-id").value = "";
+
+    document.getElementById("encounter-form-heading").textContent = "Create Encounter";
+    document.getElementById("encounter-submit-btn").textContent = "Create Encounter";
+    document.getElementById("encounter-cancel-btn").style.display = "none";
+}
+
+async function deleteEncounter(encounterId) {
+    const e = encountersCache.find(en => en.id === encounterId);
+    const encounterLabel = e?.name || `encounter ${encounterId}`;
+
+    if (!confirm(`Delete ${encounterLabel}?`)) {
+        return;
+    }
+
+    try {
+        await api(`/api/v1/encounters/${encounterId}`, {
+            method: "DELETE"
+        });
+
+        if (editingEncounterId === encounterId) {
+            resetEncounterForm();
+        }
+
+        await loadEncounters();
+    } catch (err) {
+        alert(err.message);
     }
 }
 
@@ -122,40 +190,50 @@ document
 
     e.preventDefault();
 
-    await api(`/api/v1/sessions/${sessionId}/encounters`, {
+    const payload = {
+        name:
+            document.getElementById("encounter-name").value,
 
-        method: "POST",
+        expected_difficulty:
+            document.getElementById("encounter-difficulty").value || null,
 
-        body: JSON.stringify({
+        rounds:
+            document.getElementById("encounter-rounds").value
+                ? Number(document.getElementById("encounter-rounds").value)
+                : null,
 
-            name:
-                document.getElementById("encounter-name").value,
+        notes:
+            document.getElementById("encounter-notes").value || null
+    };
 
-            expected_difficulty:
-                document.getElementById("encounter-difficulty").value || null,
+    try {
+        if (editingEncounterId) {
+            await api(`/api/v1/encounters/${editingEncounterId}`, {
+                method: "PUT",
+                body: JSON.stringify(payload)
+            });
+        } else {
+            await api(`/api/v1/sessions/${sessionId}/encounters`, {
+                method: "POST",
+                body: JSON.stringify(payload)
+            });
+        }
 
-            rounds:
-                document.getElementById("encounter-rounds").value
-                    ? Number(document.getElementById("encounter-rounds").value)
-                    : null,
+        resetEncounterForm();
 
-            notes:
-                document.getElementById("encounter-notes").value || null
-        })
-
-    });
-
-    e.target.reset();
-
-    await loadEncounters();
+        await loadEncounters();
+    } catch (err) {
+        alert(err.message);
+    }
 });
 
+document
+.getElementById("encounter-cancel-btn")
+.addEventListener("click", resetEncounterForm);
+
 async function init() {
-
     await loadSession();
-
     await loadEncounters();
-
 }
 
 init();
