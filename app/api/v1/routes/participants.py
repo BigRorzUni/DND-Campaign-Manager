@@ -7,6 +7,9 @@ from app.models.encounter import Encounter
 from app.models.session import Session
 from app.repositories.participant_repo import ParticipantRepo
 from app.schemas.participant import EncounterParticipantCreate, EncounterParticipantOut
+from app.services.ai_review_service import AiReviewService
+
+ai_review_service = AiReviewService()
 
 router = APIRouter(tags=["participants"])
 participant_repo = ParticipantRepo()
@@ -56,6 +59,7 @@ def create_participant(
             spell_slots_3=payload.spell_slots_3,
             notes=payload.notes,
         )
+        ai_review_service.mark_encounter_review_stale(db, encounter_id)
         return participant
 
     if not payload.name:

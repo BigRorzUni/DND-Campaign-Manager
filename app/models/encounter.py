@@ -1,4 +1,4 @@
-from sqlalchemy import ForeignKey, Integer, String
+from sqlalchemy import Boolean, ForeignKey, Integer, String, Text
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db.base import Base
@@ -18,6 +18,9 @@ class Encounter(Base):
     expected_difficulty: Mapped[str | None] = mapped_column(String(50))
     rounds: Mapped[int | None] = mapped_column(Integer)
     notes: Mapped[str | None] = mapped_column(String(4000))
+
+    ai_review_cached: Mapped[str | None] = mapped_column(Text)
+    ai_review_is_stale: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
 
     session: Mapped["Session"] = relationship(back_populates="encounters")
 

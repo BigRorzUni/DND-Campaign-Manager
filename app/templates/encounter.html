@@ -50,9 +50,28 @@
 
         <div id="encounter-review">
             <p class="muted"><strong>Intended Difficulty:</strong> <span id="review-expected">Loading...</span></p>
-            <p class="muted"><strong>Observed Outcome:</strong> <span id="review-observed">Loading...</span></p>
-            <p class="muted"><strong>Assessment:</strong> <span id="review-assessment">Loading...</span></p>
-            <p class="muted"><strong>Notes:</strong> <span id="review-notes">Loading...</span></p>
+            <p class="muted"><strong>Party Damage Taken:</strong> <span id="review-damage-taken">Loading...</span></p>
+            <p class="muted"><strong>Party Healing Received:</strong> <span id="review-healing-received">Loading...</span></p>
+            <p class="muted"><strong>Party Spell Slots Used:</strong> <span id="review-spell-slots-used">Loading...</span></p>
+            <p class="muted"><strong>Party Members at 0 HP:</strong> <span id="review-zero-hp">Loading...</span></p>
+            <p class="muted"><strong>Current Party HP Total:</strong> <span id="review-current-hp-total">Loading...</span></p>
+            <p class="muted"><strong>Party Max HP Total:</strong> <span id="review-max-hp-total">Loading...</span></p>
+        </div>
+    </section>
+
+    <section class="card">
+        <h2>AI Review</h2>
+
+        <div id="ai-review">
+            <p class="muted"><strong>Observed Difficulty:</strong> <span id="ai-observed-difficulty">Loading...</span></p>
+            <p class="muted"><strong>Met Intent:</strong> <span id="ai-did-meet-intent">Loading...</span></p>
+            <p class="muted"><strong>Resource Pressure:</strong> <span id="ai-resource-pressure">Loading...</span></p>
+            <p class="muted"><strong>Reasoning:</strong> <span id="ai-reasoning">Loading...</span></p>
+            <p class="muted"><strong>DM Advice:</strong> <span id="ai-dm-advice">Loading...</span></p>
+            <div class="muted">
+                <strong>Encounter Balance Suggestions:</strong>
+                <ul id="ai-balance-suggestions"></ul>
+            </div>
         </div>
     </section>
 
@@ -174,6 +193,39 @@ function toggleEventFields() {
     } else {
         spellFields.style.display = "none";
         document.getElementById("event-spell-slots-consumed").value = "";
+    }
+}
+
+async function loadAiReview() {
+    const observed = document.getElementById("ai-observed-difficulty");
+    const metIntent = document.getElementById("ai-did-meet-intent");
+    const pressure = document.getElementById("ai-resource-pressure");
+    const reasoning = document.getElementById("ai-reasoning");
+    const advice = document.getElementById("ai-dm-advice");
+    const suggestions = document.getElementById("ai-balance-suggestions");
+
+    try {
+        const review = await api(`/api/v1/encounters/${encounterId}/ai-review`);
+
+        observed.textContent = review.observed_difficulty || "N/A";
+        metIntent.textContent = review.did_meet_intent || "N/A";
+        pressure.textContent = review.resource_pressure || "N/A";
+        reasoning.textContent = review.reasoning || "N/A";
+        advice.textContent = review.dm_advice || "N/A";
+
+        suggestions.innerHTML = "";
+        for (const item of review.encounter_balance_suggestions || []) {
+            const li = document.createElement("li");
+            li.textContent = item;
+            suggestions.appendChild(li);
+        }
+    } catch (err) {
+        observed.textContent = "Unavailable";
+        metIntent.textContent = "Unavailable";
+        pressure.textContent = "Unavailable";
+        reasoning.textContent = err.message || "AI review could not be loaded.";
+        advice.textContent = "Check AI configuration or try again later.";
+        suggestions.innerHTML = "<li>AI suggestions unavailable.</li>";
     }
 }
 
@@ -306,28 +358,29 @@ async function loadEvents() {
 }
 
 async function loadEncounterReview() {
-    const review = await api(`/api/v1/encounters/${encounterId}/review`);
+    const review = await api(`/api/v1/analytics/encounters/${encounterId}/review`);
 
     document.getElementById("review-expected").textContent =
         review.expected_difficulty || "Not set";
 
-    document.getElementById("review-observed").textContent =
-        review.observed_outcome;
+    document.getElementById("review-damage-taken").textContent =
+        review.party_damage_taken ?? 0;
 
-    document.getElementById("review-assessment").textContent =
-        review.assessment;
+    document.getElementById("review-healing-received").textContent =
+        review.party_healing_received ?? 0;
 
-    document.getElementById("review-notes").textContent =
-        review.notes;
+    document.getElementById("review-spell-slots-used").textContent =
+        review.party_spell_slots_used ?? 0;
+
+    document.getElementById("review-zero-hp").textContent =
+        review.party_zero_hp_count ?? 0;
+
+    document.getElementById("review-current-hp-total").textContent =
+        review.party_current_hp_total ?? 0;
+
+    document.getElementById("review-max-hp-total").textContent =
+        review.party_max_hp_total ?? 0;
 }
-
-document.getElementById("event-source-select").addEventListener("change", () => {
-    toggleCustomParticipantInput("event-source-select", "event-source-custom");
-});
-
-document.getElementById("event-target-select").addEventListener("change", () => {
-    toggleCustomParticipantInput("event-target-select", "event-target-custom");
-});
 
 document.getElementById("event-kind").addEventListener("change", toggleEventFields);
 
@@ -445,6 +498,7 @@ document.getElementById("event-form").addEventListener("submit", async (e) => {
         await loadParticipants();
         await loadEvents();
         await loadEncounterReview();
+        await loadAiReview();
     } catch (err) {
         alert(err.message);
     }
@@ -456,6 +510,7 @@ async function init() {
         await loadParticipants();
         await loadEvents();
         await loadEncounterReview();
+        await loadAiReview();
     } catch (err) {
         console.error("Encounter page init failed:", err);
         alert(err.message);
