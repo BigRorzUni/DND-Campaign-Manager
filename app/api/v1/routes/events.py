@@ -6,6 +6,9 @@ from app.models.encounter import Encounter
 from app.repositories.event_repo import EventRepo
 from app.schemas.event import EventCreate, EventOut
 from app.services.event_service import EventService
+from app.services.ai_review_service import AiReviewService
+
+ai_review_service = AiReviewService()
 
 router = APIRouter(tags=["events"])
 event_repo = EventRepo()
@@ -26,7 +29,7 @@ def create_event(
     if not encounter:
         raise HTTPException(status_code=404, detail="Encounter not found")
 
-    return event_service.create_event(
+    event = event_service.create_event(
         db,
         encounter_id=encounter_id,
         kind=payload.kind,
@@ -36,6 +39,8 @@ def create_event(
         spell_slots_consumed=payload.spell_slots_consumed,
         detail=payload.detail,
     )
+    ai_review_service.mark_encounter_review_stale(db, encounter_id)
+    return event
 
 
 @router.get("/encounters/{encounter_id}/events", response_model=list[EventOut])

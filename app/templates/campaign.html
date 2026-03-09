@@ -30,31 +30,40 @@
         <h2>Characters</h2>
         <div id="characters"></div>
 
-        <h3>Create Character</h3>
+        <h3 id="character-form-heading">Create Character</h3>
         <form id="character-form">
+            <input type="hidden" id="character-id" />
+
             <input id="character-name" placeholder="Character name" required />
-            <input id="character-role" placeholder="PC / NPC / MONSTER" required />
             <input id="character-class-name" placeholder="Class name" />
-            <input id="character-level" type="number" placeholder="Level" />
-            <input id="character-max-hp" type="number" placeholder="Max HP" />
-            <input id="character-current-hp" type="number" placeholder="Current HP" />
-            <input id="character-ac" type="number" placeholder="Armour Class" />
+            <input id="character-level" type="number" placeholder="Level" min="1" />
+            <input id="character-max-hp" type="number" placeholder="Max HP" min="0" />
+            <input id="character-current-hp" type="number" placeholder="Current HP" min="0" />
+            <input id="character-ac" type="number" placeholder="Armour Class" min="0" />
             <textarea id="character-notes" placeholder="Character notes"></textarea>
-            <button type="submit">Create Character</button>
+
+            <button type="submit" id="character-submit-btn">Create Character</button>
+            <button type="button" id="character-cancel-btn" style="display:none;">Cancel Edit</button>
         </form>
     </section>
 
     <section class="card">
         <h2>Analytics</h2>
 
-        <h3>Damage Leaderboard</h3>
+        <h3>Time Played</h3>
+        <div id="time-played" class="muted">Loading...</div>
+
+        <h3>Damage Dealt</h3>
         <div id="damage-leaderboard" class="muted">Loading...</div>
 
-        <h3>Event Breakdown</h3>
-        <div id="event-breakdown" class="muted">Loading...</div>
+        <h3>Damage Taken</h3>
+        <div id="damage-taken" class="muted">Loading...</div>
 
-        <h3>Encounter Difficulty</h3>
-        <div id="encounter-difficulty" class="muted">Loading...</div>
+        <h3>Healing Received</h3>
+        <div id="healing-received" class="muted">Loading...</div>
+
+        <h3>Spell Usage</h3>
+        <div id="spell-usage" class="muted">Loading...</div>
     </section>
 
 </div>
@@ -63,6 +72,9 @@
 const campaignId = Number(
     document.getElementById("campaign-page").dataset.campaignId
 );
+
+let editingCharacterId = null;
+let charactersCache = [];
 
 async function api(path, options = {}) {
     const response = await fetch(path, {
@@ -106,6 +118,11 @@ async function loadSessions() {
         div.innerHTML = `
             <strong>${s.title || "Untitled session"}</strong><br>
             <span class="muted">${s.date}</span><br>
+            <span class="muted">
+                ${s.duration_minutes !== null && s.duration_minutes !== undefined
+                    ? `Duration: ${s.duration_minutes} minutes`
+                    : "Duration not recorded"}
+            </span><br>
             <a href="/sessions/${s.id}/view">Open Session</a>
         `;
         container.appendChild(div);
@@ -114,6 +131,8 @@ async function loadSessions() {
 
 async function loadCharacters() {
     const characters = await api(`/api/v1/campaigns/${campaignId}/characters`);
+    charactersCache = characters;
+
     const container = document.getElementById("characters");
     container.innerHTML = "";
 
@@ -128,18 +147,66 @@ async function loadCharacters() {
         div.innerHTML = `
             <strong>${c.name}</strong><br>
             <span class="muted">
-                ${c.role}
-                ${c.class_name ? ` | ${c.class_name}` : ""}
-                ${c.level ? ` | Level ${c.level}` : ""}
+                ${c.class_name ? `${c.class_name}` : ""}
+                ${c.level !== null && c.level !== undefined ? ` | Level ${c.level}` : ""}
             </span><br>
             <span class="muted">
                 HP: ${c.current_hp ?? "?"}/${c.max_hp ?? "?"}
                 ${c.armor_class !== null && c.armor_class !== undefined ? ` | AC ${c.armor_class}` : ""}
             </span><br>
-            <span class="muted">${c.notes || ""}</span>
+            <span class="muted">${c.notes || ""}</span><br>
+            <button type="button" onclick="startEditCharacter(${c.id})">Edit</button>
         `;
         container.appendChild(div);
     }
+}
+
+function startEditCharacter(characterId) {
+    const c = charactersCache.find(ch => ch.id === characterId);
+    if (!c) return;
+
+    editingCharacterId = c.id;
+
+    document.getElementById("character-id").value = c.id;
+    document.getElementById("character-name").value = c.name || "";
+    document.getElementById("character-class-name").value = c.class_name || "";
+    document.getElementById("character-level").value = c.level ?? "";
+    document.getElementById("character-max-hp").value = c.max_hp ?? "";
+    document.getElementById("character-current-hp").value = c.current_hp ?? "";
+    document.getElementById("character-ac").value = c.armor_class ?? "";
+    document.getElementById("character-notes").value = c.notes || "";
+
+    document.getElementById("character-form-heading").textContent = "Edit Character";
+    document.getElementById("character-submit-btn").textContent = "Save Changes";
+    document.getElementById("character-cancel-btn").style.display = "inline-block";
+
+    window.scrollTo({
+        top: document.getElementById("character-form-heading").offsetTop - 40,
+        behavior: "smooth"
+    });
+}
+
+function resetCharacterForm() {
+    editingCharacterId = null;
+
+    document.getElementById("character-form").reset();
+    document.getElementById("character-id").value = "";
+
+    document.getElementById("character-form-heading").textContent = "Create Character";
+    document.getElementById("character-submit-btn").textContent = "Create Character";
+    document.getElementById("character-cancel-btn").style.display = "none";
+}
+
+async function loadTimePlayed() {
+    const data = await api(`/api/v1/analytics/campaigns/${campaignId}/time-played`);
+    const container = document.getElementById("time-played");
+
+    container.innerHTML = `
+        <div class="item">
+            <strong>${data.total_minutes}</strong> total minutes<br>
+            <span class="muted">${data.total_hours} total hours</span>
+        </div>
+    `;
 }
 
 async function loadDamageLeaderboard() {
@@ -147,50 +214,65 @@ async function loadDamageLeaderboard() {
     const container = document.getElementById("damage-leaderboard");
 
     if (!data.length) {
-        container.innerHTML = "<p class='muted'>No damage data yet.</p>";
+        container.innerHTML = "<p class='muted'>No damage dealt data yet.</p>";
         return;
     }
 
     container.innerHTML = data.map(entry => `
         <div class="item">
-            <strong>${entry.source || "Unknown"}</strong><br>
+            <strong>${entry.source}</strong><br>
             Total Damage: ${entry.total_damage}
         </div>
     `).join("");
 }
 
-async function loadEventBreakdown() {
-    const data = await api(`/api/v1/analytics/campaigns/${campaignId}/event-breakdown`);
-    const container = document.getElementById("event-breakdown");
+async function loadDamageTaken() {
+    const data = await api(`/api/v1/analytics/campaigns/${campaignId}/damage-taken`);
+    const container = document.getElementById("damage-taken");
 
     if (!data.length) {
-        container.innerHTML = "<p class='muted'>No event data yet.</p>";
+        container.innerHTML = "<p class='muted'>No damage taken data yet.</p>";
         return;
     }
 
     container.innerHTML = data.map(entry => `
         <div class="item">
-            <strong>${entry.kind}</strong><br>
-            Count: ${entry.count}
+            <strong>${entry.target}</strong><br>
+            Total Damage Taken: ${entry.total_damage_taken}
         </div>
     `).join("");
 }
 
-async function loadEncounterDifficulty() {
-    const data = await api(`/api/v1/analytics/campaigns/${campaignId}/encounter-difficulty`);
-    const container = document.getElementById("encounter-difficulty");
+async function loadHealingReceived() {
+    const data = await api(`/api/v1/analytics/campaigns/${campaignId}/healing-received`);
+    const container = document.getElementById("healing-received");
 
     if (!data.length) {
-        container.innerHTML = "<p class='muted'>No encounter data yet.</p>";
+        container.innerHTML = "<p class='muted'>No healing data yet.</p>";
         return;
     }
 
     container.innerHTML = data.map(entry => `
         <div class="item">
-            <strong>${entry.encounter_name}</strong><br>
-            Rounds: ${entry.rounds ?? "N/A"}<br>
-            Total Damage: ${entry.total_damage}<br>
-            Downs: ${entry.downs}
+            <strong>${entry.target}</strong><br>
+            Total Healing Received: ${entry.total_healing_received}
+        </div>
+    `).join("");
+}
+
+async function loadSpellUsage() {
+    const data = await api(`/api/v1/analytics/campaigns/${campaignId}/spell-usage`);
+    const container = document.getElementById("spell-usage");
+
+    if (!data.length) {
+        container.innerHTML = "<p class='muted'>No spell usage data yet.</p>";
+        return;
+    }
+
+    container.innerHTML = data.map(entry => `
+        <div class="item">
+            <strong>${entry.source}</strong><br>
+            Total Spell Slots Used: ${entry.total_spell_slots_used}
         </div>
     `).join("");
 }
@@ -212,44 +294,58 @@ document.getElementById("session-form").addEventListener("submit", async (e) => 
 
     e.target.reset();
     await loadSessions();
+    await loadTimePlayed();
 });
 
 document.getElementById("character-form").addEventListener("submit", async (e) => {
     e.preventDefault();
 
-    await api(`/api/v1/campaigns/${campaignId}/characters`, {
-        method: "POST",
-        body: JSON.stringify({
-            name: document.getElementById("character-name").value,
-            role: document.getElementById("character-role").value,
-            class_name: document.getElementById("character-class-name").value || null,
-            level: document.getElementById("character-level").value
-                ? Number(document.getElementById("character-level").value)
-                : null,
-            max_hp: document.getElementById("character-max-hp").value
-                ? Number(document.getElementById("character-max-hp").value)
-                : null,
-            current_hp: document.getElementById("character-current-hp").value
-                ? Number(document.getElementById("character-current-hp").value)
-                : null,
-            armor_class: document.getElementById("character-ac").value
-                ? Number(document.getElementById("character-ac").value)
-                : null,
-            notes: document.getElementById("character-notes").value || null
-        })
-    });
+    const payload = {
+        name: document.getElementById("character-name").value,
+        role: "PC",
+        class_name: document.getElementById("character-class-name").value || null,
+        level: document.getElementById("character-level").value
+            ? Number(document.getElementById("character-level").value)
+            : null,
+        max_hp: document.getElementById("character-max-hp").value
+            ? Number(document.getElementById("character-max-hp").value)
+            : null,
+        current_hp: document.getElementById("character-current-hp").value
+            ? Number(document.getElementById("character-current-hp").value)
+            : null,
+        armor_class: document.getElementById("character-ac").value
+            ? Number(document.getElementById("character-ac").value)
+            : null,
+        notes: document.getElementById("character-notes").value || null
+    };
 
-    e.target.reset();
+    if (editingCharacterId) {
+        await api(`/api/v1/characters/${editingCharacterId}`, {
+            method: "PUT",
+            body: JSON.stringify(payload)
+        });
+    } else {
+        await api(`/api/v1/campaigns/${campaignId}/characters`, {
+            method: "POST",
+            body: JSON.stringify(payload)
+        });
+    }
+
+    resetCharacterForm();
     await loadCharacters();
 });
+
+document.getElementById("character-cancel-btn").addEventListener("click", resetCharacterForm);
 
 async function init() {
     await loadCampaign();
     await loadSessions();
     await loadCharacters();
+    await loadTimePlayed();
     await loadDamageLeaderboard();
-    await loadEventBreakdown();
-    await loadEncounterDifficulty();
+    await loadDamageTaken();
+    await loadHealingReceived();
+    await loadSpellUsage();
 }
 
 init();
