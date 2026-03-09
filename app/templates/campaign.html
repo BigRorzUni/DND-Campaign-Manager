@@ -16,13 +16,15 @@
         <h2>Sessions</h2>
         <div id="sessions"></div>
 
-        <h3>Create Session</h3>
+        <h3 id="session-form-heading">Create Session</h3>
         <form id="session-form">
+            <input type="hidden" id="session-id" />
             <input id="session-date" placeholder="2026-03-08" required />
             <input id="session-title" placeholder="Session title" />
             <textarea id="session-notes" placeholder="Session notes"></textarea>
             <input id="session-duration" type="number" placeholder="Duration minutes" />
-            <button type="submit">Create Session</button>
+            <button type="submit" id="session-submit-btn">Create Session</button>
+            <button type="button" id="session-cancel-btn" style="display:none;">Cancel Edit</button>
         </form>
     </section>
 
@@ -76,6 +78,9 @@ const campaignId = Number(
 let editingCharacterId = null;
 let charactersCache = [];
 
+let editingSessionId = null;
+let sessionsCache = [];
+
 async function api(path, options = {}) {
     const response = await fetch(path, {
         headers: { "Content-Type": "application/json" },
@@ -104,6 +109,8 @@ async function loadCampaign() {
 
 async function loadSessions() {
     const sessions = await api(`/api/v1/campaigns/${campaignId}/sessions`);
+    sessionsCache = sessions;
+
     const container = document.getElementById("sessions");
     container.innerHTML = "";
 
@@ -123,9 +130,69 @@ async function loadSessions() {
                     ? `Duration: ${s.duration_minutes} minutes`
                     : "Duration not recorded"}
             </span><br>
-            <a href="/sessions/${s.id}/view">Open Session</a>
+            <span class="muted">${s.notes || ""}</span><br>
+            <a href="/sessions/${s.id}/view">Open Session</a><br>
+            <button type="button" onclick="startEditSession(${s.id})">Edit</button>
+            <button type="button" onclick="deleteSession(${s.id})">Delete</button>
         `;
         container.appendChild(div);
+    }
+}
+
+function startEditSession(sessionId) {
+    const s = sessionsCache.find(se => se.id === sessionId);
+    if (!s) return;
+
+    editingSessionId = s.id;
+
+    document.getElementById("session-id").value = s.id;
+    document.getElementById("session-date").value = s.date || "";
+    document.getElementById("session-title").value = s.title || "";
+    document.getElementById("session-notes").value = s.notes || "";
+    document.getElementById("session-duration").value = s.duration_minutes ?? "";
+
+    document.getElementById("session-form-heading").textContent = "Edit Session";
+    document.getElementById("session-submit-btn").textContent = "Save Changes";
+    document.getElementById("session-cancel-btn").style.display = "inline-block";
+
+    window.scrollTo({
+        top: document.getElementById("session-form-heading").offsetTop - 40,
+        behavior: "smooth"
+    });
+}
+
+function resetSessionForm() {
+    editingSessionId = null;
+
+    document.getElementById("session-form").reset();
+    document.getElementById("session-id").value = "";
+
+    document.getElementById("session-form-heading").textContent = "Create Session";
+    document.getElementById("session-submit-btn").textContent = "Create Session";
+    document.getElementById("session-cancel-btn").style.display = "none";
+}
+
+async function deleteSession(sessionId) {
+    const s = sessionsCache.find(se => se.id === sessionId);
+    const sessionLabel = s?.title || `session ${sessionId}`;
+
+    if (!confirm(`Delete ${sessionLabel}? This may also remove encounters linked to it.`)) {
+        return;
+    }
+
+    try {
+        await api(`/api/v1/sessions/${sessionId}`, {
+            method: "DELETE"
+        });
+
+        if (editingSessionId === sessionId) {
+            resetSessionForm();
+        }
+
+        await loadSessions();
+        await loadTimePlayed();
+    } catch (err) {
+        alert(err.message);
     }
 }
 
@@ -280,21 +347,34 @@ async function loadSpellUsage() {
 document.getElementById("session-form").addEventListener("submit", async (e) => {
     e.preventDefault();
 
-    await api(`/api/v1/campaigns/${campaignId}/sessions`, {
-        method: "POST",
-        body: JSON.stringify({
-            date: document.getElementById("session-date").value,
-            title: document.getElementById("session-title").value || null,
-            notes: document.getElementById("session-notes").value || null,
-            duration_minutes: document.getElementById("session-duration").value
-                ? Number(document.getElementById("session-duration").value)
-                : null
-        })
-    });
+    const payload = {
+        date: document.getElementById("session-date").value,
+        title: document.getElementById("session-title").value || null,
+        notes: document.getElementById("session-notes").value || null,
+        duration_minutes: document.getElementById("session-duration").value
+            ? Number(document.getElementById("session-duration").value)
+            : null
+    };
 
-    e.target.reset();
-    await loadSessions();
-    await loadTimePlayed();
+    try {
+        if (editingSessionId) {
+            await api(`/api/v1/sessions/${editingSessionId}`, {
+                method: "PUT",
+                body: JSON.stringify(payload)
+            });
+        } else {
+            await api(`/api/v1/campaigns/${campaignId}/sessions`, {
+                method: "POST",
+                body: JSON.stringify(payload)
+            });
+        }
+
+        resetSessionForm();
+        await loadSessions();
+        await loadTimePlayed();
+    } catch (err) {
+        alert(err.message);
+    }
 });
 
 document.getElementById("character-form").addEventListener("submit", async (e) => {
@@ -335,6 +415,7 @@ document.getElementById("character-form").addEventListener("submit", async (e) =
     await loadCharacters();
 });
 
+document.getElementById("session-cancel-btn").addEventListener("click", resetSessionForm);
 document.getElementById("character-cancel-btn").addEventListener("click", resetCharacterForm);
 
 async function init() {
