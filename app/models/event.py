@@ -18,5 +18,16 @@ class Event(Base):
     target: Mapped[str | None] = mapped_column(String(200))
     amount: Mapped[int | None] = mapped_column(Integer)
     detail: Mapped[str | None] = mapped_column(String(4000))
+    slots_consumed: Mapped[int | None] = mapped_column(Integer)
+    
+    source_character_id: Mapped[int | None] = mapped_column(
+    ForeignKey("characters.id", ondelete="SET NULL"),
+    nullable=True
+    )
+    target_character_id: Mapped[int | None] = mapped_column(
+        ForeignKey("characters.id", ondelete="SET NULL"),
+        nullable=True
+    )
+    slot_level_used: Mapped[int | None] = mapped_column(Integer)
 
     encounter: Mapped["Encounter"] = relationship(back_populates="events")

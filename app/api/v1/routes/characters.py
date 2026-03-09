@@ -5,11 +5,12 @@ from app.api.deps import get_db
 from app.repositories.campaign_repo import CampaignRepo
 from app.repositories.character_repo import CharacterRepo
 from app.schemas.character import CharacterCreate, CharacterOut, CharacterUpdate
+from app.repositories.resource_state_repo import ResourceStateRepo
 
 router = APIRouter(tags=["characters"])
 campaign_repo = CampaignRepo()
 character_repo = CharacterRepo()
-
+resource_state_repo = ResourceStateRepo()
 
 @router.post(
     "/campaigns/{campaign_id}/characters",
@@ -25,7 +26,7 @@ def create_character(
     if not campaign:
         raise HTTPException(status_code=404, detail="Campaign not found")
 
-    return character_repo.create(
+    character = character_repo.create(
         db,
         campaign_id=campaign_id,
         name=payload.name,
@@ -37,6 +38,25 @@ def create_character(
         armor_class=payload.armor_class,
         notes=payload.notes,
     )
+
+    # initialise resource state automatically
+    initial_hp = payload.current_hp if payload.current_hp is not None else payload.max_hp
+
+    resource_state_repo.create(
+        db,
+        character_id=character.id,
+        current_hp=initial_hp,
+        spell_slots_1_current=0,
+        spell_slots_1_max=0,
+        spell_slots_2_current=0,
+        spell_slots_2_max=0,
+        spell_slots_3_current=0,
+        spell_slots_3_max=0,
+        hit_dice_current=payload.level if payload.level is not None else 0,
+        hit_dice_max=payload.level if payload.level is not None else 0,
+    )
+
+    return character
 
 
 @router.get("/campaigns/{campaign_id}/characters", response_model=list[CharacterOut])

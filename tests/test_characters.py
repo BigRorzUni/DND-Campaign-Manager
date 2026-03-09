@@ -155,3 +155,35 @@ def test_create_character_for_missing_campaign_returns_404(client):
 
     assert response.status_code == 404
     assert response.json()["detail"] == "Campaign not found"
+
+def test_creating_character_initialises_resource_state(client):
+    campaign = client.post(
+        "/api/v1/campaigns",
+        json={
+            "name": "Resource Init Campaign",
+            "description": "Testing automatic resource initialisation"
+        }
+    ).json()
+
+    character = client.post(
+        f"/api/v1/campaigns/{campaign['id']}/characters",
+        json={
+            "name": "Arannis",
+            "role": "PC",
+            "class_name": "Ranger",
+            "level": 4,
+            "max_hp": 32,
+            "current_hp": 28,
+            "armor_class": 15,
+            "notes": "Archer build"
+        }
+    ).json()
+
+    resource_response = client.get(f"/api/v1/characters/{character['id']}/resource-state")
+    assert resource_response.status_code == 200
+
+    resource_state = resource_response.json()
+    assert resource_state["character_id"] == character["id"]
+    assert resource_state["current_hp"] == 28
+    assert resource_state["hit_dice_current"] == 4
+    assert resource_state["hit_dice_max"] == 4

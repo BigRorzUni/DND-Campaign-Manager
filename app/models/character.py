@@ -24,3 +24,9 @@ class Character(Base):
     notes: Mapped[str | None] = mapped_column(String(2000))
 
     campaign: Mapped["Campaign"] = relationship(back_populates="characters")
+
+    resource_state: Mapped["CharacterResourceState | None"] = relationship(
+        back_populates="character",
+        cascade="all, delete-orphan",
+        uselist=False,
+    )

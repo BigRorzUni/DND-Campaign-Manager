@@ -6,6 +6,7 @@ from app.models.character import Character
 from app.models.encounter import Encounter
 from app.models.session import Session
 from app.repositories.participant_repo import ParticipantRepo
+from app.models.encounter_participant_state import EncounterParticipantState
 from app.schemas.participant import EncounterParticipantCreate, EncounterParticipantOut
 
 router = APIRouter(tags=["participants"])
@@ -54,17 +55,40 @@ def create_participant(
         notes=payload.notes,
     )
 
-
 @router.get(
     "/encounters/{encounter_id}/participants",
     response_model=list[EncounterParticipantOut],
 )
 def list_participants(encounter_id: int, db: DbSession = Depends(get_db)):
-    encounter = db.get(Encounter, encounter_id)
-    if not encounter:
-        raise HTTPException(status_code=404, detail="Encounter not found")
+    rows = (
+        db.query(EncounterParticipantState, Character)
+        .join(Character, Character.id == EncounterParticipantState.character_id)
+        .filter(EncounterParticipantState.encounter_id == encounter_id)
+        .all()
+    )
 
-    return participant_repo.list_for_encounter(db, encounter_id)
+    results = []
+
+    for participant, character in rows:
+        results.append(
+            EncounterParticipantOut(
+                id=participant.id,
+                encounter_id=participant.encounter_id,
+                character_id=participant.character_id,
+                character_name=character.name,
+                character_class=character.class_name,
+                character_level=character.level,
+                starting_hp=participant.starting_hp,
+                starting_hp_percent=participant.starting_hp_percent,
+                spell_slots_1_start=participant.spell_slots_1_start,
+                spell_slots_2_start=participant.spell_slots_2_start,
+                spell_slots_3_start=participant.spell_slots_3_start,
+                hit_dice_start=participant.hit_dice_start,
+                notes=participant.notes,
+            )
+        )
+
+    return results
 
 
 @router.delete("/participants/{participant_id}", status_code=status.HTTP_204_NO_CONTENT)

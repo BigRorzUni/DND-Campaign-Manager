@@ -148,6 +148,7 @@ async function loadCharacterOptions() {
 async function loadParticipants() {
     const participants = await api(`/api/v1/encounters/${encounterId}/participants`);
     const container = document.getElementById("participants");
+
     container.innerHTML = "";
 
     if (!participants.length) {
@@ -158,18 +159,21 @@ async function loadParticipants() {
     for (const p of participants) {
         const div = document.createElement("div");
         div.className = "item";
+
         div.innerHTML = `
-            <strong>Character ID: ${p.character_id}</strong><br>
-            <span class="muted">
-                Starting HP: ${p.starting_hp ?? "?"}
-                ${p.starting_hp_percent !== null && p.starting_hp_percent !== undefined ? ` | ${p.starting_hp_percent}%` : ""}
-            </span><br>
-            <span class="muted">
-                Slots: [${p.spell_slots_1_start ?? "-"}, ${p.spell_slots_2_start ?? "-"}, ${p.spell_slots_3_start ?? "-"}]
-                ${p.hit_dice_start !== null && p.hit_dice_start !== undefined ? ` | Hit Dice: ${p.hit_dice_start}` : ""}
-            </span><br>
-            <span class="muted">${p.notes || ""}</span>
+            <strong>${p.character_name}</strong>
+            ${p.character_class ? ` (${p.character_class}` : ""}
+            ${p.character_level ? ` L${p.character_level}` : ""}
+            ${p.character_class ? `)` : ""}
+            <br>
+            ${p.starting_hp !== null ? `Starting HP: ${p.starting_hp}<br>` : ""}
+            ${p.starting_hp_percent !== null ? `HP %: ${p.starting_hp_percent}<br>` : ""}
+            ${p.spell_slots_1_start !== null ? `Slots L1: ${p.spell_slots_1_start}<br>` : ""}
+            ${p.spell_slots_2_start !== null ? `Slots L2: ${p.spell_slots_2_start}<br>` : ""}
+            ${p.spell_slots_3_start !== null ? `Slots L3: ${p.spell_slots_3_start}<br>` : ""}
+            ${p.hit_dice_start !== null ? `Hit Dice: ${p.hit_dice_start}<br>` : ""}
         `;
+
         container.appendChild(div);
     }
 }

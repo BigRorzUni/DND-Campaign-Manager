@@ -5,10 +5,12 @@ from app.api.deps import get_db
 from app.repositories.encounter_repo import EncounterRepo
 from app.repositories.event_repo import EventRepo
 from app.schemas.event import EventCreate, EventOut, EventUpdate
+from app.services.event_service import EventService
 
 router = APIRouter(tags=["events"])
 encounter_repo = EncounterRepo()
 event_repo = EventRepo()
+event_service = EventService()
 
 
 @router.post(
@@ -25,14 +27,18 @@ def create_event(
     if not encounter:
         raise HTTPException(status_code=404, detail="Encounter not found")
 
-    return event_repo.create(
+    return event_service.create_event(
         db,
         encounter_id=encounter_id,
         kind=payload.kind,
         source=payload.source,
         target=payload.target,
+        source_character_id=payload.source_character_id,
+        target_character_id=payload.target_character_id,
         amount=payload.amount,
-        detail=payload.detail
+        slot_level_used=payload.slot_level_used,
+        slots_consumed=payload.slots_consumed,
+        detail=payload.detail,
     )
 
 
@@ -50,27 +56,6 @@ def get_event(event_id: int, db: DbSession = Depends(get_db)):
     if not obj:
         raise HTTPException(status_code=404, detail="Event not found")
     return obj
-
-
-@router.put("/events/{event_id}", response_model=EventOut)
-def update_event(
-    event_id: int,
-    payload: EventUpdate,
-    db: DbSession = Depends(get_db)
-):
-    obj = event_repo.get(db, event_id)
-    if not obj:
-        raise HTTPException(status_code=404, detail="Event not found")
-
-    return event_repo.update(
-        db,
-        obj,
-        kind=payload.kind,
-        source=payload.source,
-        target=payload.target,
-        amount=payload.amount,
-        detail=payload.detail
-    )
 
 
 @router.delete("/events/{event_id}", status_code=status.HTTP_204_NO_CONTENT)
