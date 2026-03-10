@@ -4,11 +4,13 @@
 
 {% block content %}
 <section class="card">
-    <h2>Create Campaign</h2>
+    <h2 id="campaign-form-heading">Create Campaign</h2>
     <form id="campaign-form">
+        <input type="hidden" id="campaign-id" />
         <input id="name" placeholder="Campaign name" required />
         <textarea id="description" placeholder="Description"></textarea>
-        <button type="submit">Create Campaign</button>
+        <button type="submit" id="campaign-submit-btn">Create Campaign</button>
+        <button type="button" id="campaign-cancel-btn" style="display:none;">Cancel Edit</button>
     </form>
 </section>
 
@@ -18,9 +20,83 @@
 </section>
 
 <script>
+let campaignsCache = [];
+let editingCampaignId = null;
+
+async function api(path, options = {}) {
+    const response = await fetch(path, {
+        headers: { "Content-Type": "application/json" },
+        ...options
+    });
+
+    if (!response.ok) {
+        let detail = "Request failed";
+        try {
+            const data = await response.json();
+            detail = data.detail || JSON.stringify(data);
+        } catch (_) {}
+        throw new Error(detail);
+    }
+
+    if (response.status === 204) return null;
+    return response.json();
+}
+
+function resetCampaignForm() {
+    editingCampaignId = null;
+    document.getElementById("campaign-form").reset();
+    document.getElementById("campaign-id").value = "";
+
+    document.getElementById("campaign-form-heading").textContent = "Create Campaign";
+    document.getElementById("campaign-submit-btn").textContent = "Create Campaign";
+    document.getElementById("campaign-cancel-btn").style.display = "none";
+}
+
+function startEditCampaign(campaignId) {
+    const campaign = campaignsCache.find(c => c.id === campaignId);
+    if (!campaign) return;
+
+    editingCampaignId = campaign.id;
+    document.getElementById("campaign-id").value = campaign.id;
+    document.getElementById("name").value = campaign.name || "";
+    document.getElementById("description").value = campaign.description || "";
+
+    document.getElementById("campaign-form-heading").textContent = "Edit Campaign";
+    document.getElementById("campaign-submit-btn").textContent = "Save Changes";
+    document.getElementById("campaign-cancel-btn").style.display = "inline-block";
+
+    window.scrollTo({
+        top: document.getElementById("campaign-form-heading").offsetTop - 40,
+        behavior: "smooth"
+    });
+}
+
+async function deleteCampaign(campaignId) {
+    const campaign = campaignsCache.find(c => c.id === campaignId);
+    const label = campaign ? campaign.name : `campaign ${campaignId}`;
+
+    if (!confirm(`Delete "${label}"? This will also remove its sessions, encounters, and related data.`)) {
+        return;
+    }
+
+    try {
+        await api(`/api/v1/campaigns/${campaignId}`, {
+            method: "DELETE"
+        });
+
+        if (editingCampaignId === campaignId) {
+            resetCampaignForm();
+        }
+
+        await loadCampaigns();
+    } catch (err) {
+        alert(err.message);
+    }
+}
+
 async function loadCampaigns() {
-    const res = await fetch("/api/v1/campaigns");
-    const data = await res.json();
+    const data = await api("/api/v1/campaigns");
+    campaignsCache = data;
 
     const container = document.getElementById("campaigns");
     container.innerHTML = "";
@@ -37,6 +113,8 @@ async function loadCampaigns() {
             <strong>${c.name}</strong><br>
             <span class="muted">${c.description ?? ""}</span><br>
             <a href="/campaigns/${c.id}/view">Open</a>
+            <button type="button" onclick="startEditCampaign(${c.id})">Edit</button>
+            <button type="button" onclick="deleteCampaign(${c.id})">Delete</button>
         `;
         container.appendChild(div);
     }
@@ -45,18 +123,32 @@ async function loadCampaigns() {
 document.getElementById("campaign-form").addEventListener("submit", async (e) => {
     e.preventDefault();
 
-    await fetch("/api/v1/campaigns", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-            name: document.getElementById("name").value,
-            description: document.getElementById("description").value || null
-        })
-    });
+    const payload = {
+        name: document.getElementById("name").value,
+        description: document.getElementById("description").value || null
+    };
 
-    e.target.reset();
-    loadCampaigns();
+    try {
+        if (editingCampaignId) {
+            await api(`/api/v1/campaigns/${editingCampaignId}`, {
+                method: "PUT",
+                body: JSON.stringify(payload)
+            });
+        } else {
+            await api("/api/v1/campaigns", {
+                method: "POST",
+                body: JSON.stringify(payload)
+            });
+        }
+
+        resetCampaignForm();
+        await loadCampaigns();
+    } catch (err) {
+        alert(err.message);
+    }
 });
+
+document.getElementById("campaign-cancel-btn").addEventListener("click", resetCampaignForm);
 
 loadCampaigns();
 </script>
