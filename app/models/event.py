@@ -1,4 +1,6 @@
-from sqlalchemy import ForeignKey, Integer, String
+from __future__ import annotations
+
+from sqlalchemy import ForeignKey, Integer, String, Text
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db.base import Base
@@ -26,8 +28,11 @@ class Event(Base):
         nullable=True,
     )
 
-    amount: Mapped[int | None] = mapped_column(Integer)
-    spell_slots_consumed: Mapped[int | None] = mapped_column(Integer)
-    detail: Mapped[str | None] = mapped_column(String(4000))
+    amount: Mapped[int | None] = mapped_column(Integer, nullable=True)
+
+    spell_slots_consumed: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    spell_slot_level_used: Mapped[int | None] = mapped_column(Integer, nullable=True)
+
+    detail: Mapped[str | None] = mapped_column(Text, nullable=True)
 
     encounter: Mapped["Encounter"] = relationship(back_populates="events")

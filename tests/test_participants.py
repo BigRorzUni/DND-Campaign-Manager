@@ -90,7 +90,7 @@ def test_create_custom_enemy_participant(client):
         f"/api/v1/encounters/{encounter['id']}/participants",
         json={
             "name": "Goblin Archer",
-            "participant_type": "ENEMY",
+            "participant_type": "OTHER",
             "class_name": "Goblin",
             "max_hp": 7,
             "current_hp": 7,
@@ -102,5 +102,5 @@ def test_create_custom_enemy_participant(client):
     participant = create_response.json()
     assert participant["character_id"] is None
     assert participant["name"] == "Goblin Archer"
-    assert participant["participant_type"] == "ENEMY"
+    assert participant["participant_type"] == "OTHER"
     assert participant["current_hp"] == 7

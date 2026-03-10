@@ -79,8 +79,10 @@
         <h2>Events</h2>
         <div id="events"></div>
 
-        <h3>Create Event</h3>
+        <h3 id="event-form-heading">Create Event</h3>
         <form id="event-form">
+            <input type="hidden" id="event-id">
+
             <select id="event-kind" required>
                 <option value="">Select event kind</option>
                 <option value="DAMAGE">DAMAGE</option>
@@ -105,10 +107,17 @@
 
             <div id="spell-fields" style="display: none;">
                 <input id="event-spell-slots-consumed" type="number" min="0" placeholder="Spell slots used (optional)" />
+                <select id="event-spell-slot-level-used">
+                    <option value="">Slot level used</option>
+                    <option value="1">Level 1</option>
+                    <option value="2">Level 2</option>
+                    <option value="3">Level 3</option>
+                </select>
             </div>
 
             <textarea id="event-detail" placeholder="Detail"></textarea>
-            <button type="submit">Create Event</button>
+            <button type="submit" id="event-submit-btn">Create Event</button>
+            <button type="button" id="event-cancel-btn" style="display:none;">Cancel Edit</button>
         </form>
     </section>
 
@@ -116,6 +125,8 @@
 
 <script>
 let participantsCache = [];
+let eventsCache = [];
+let editingEventId = null;
 
 const encounterId = Number(
     document.getElementById("encounter-page").dataset.encounterId
@@ -164,18 +175,6 @@ function populateEventParticipantSelectors() {
     }
 }
 
-function toggleCustomParticipantInput(selectId, inputId) {
-    const select = document.getElementById(selectId);
-    const input = document.getElementById(inputId);
-
-    if (select.value === "__custom__") {
-        input.style.display = "block";
-    } else {
-        input.style.display = "none";
-        input.value = "";
-    }
-}
-
 function toggleEventFields() {
     const kind = document.getElementById("event-kind").value;
     const amountFields = document.getElementById("amount-fields");
@@ -193,6 +192,82 @@ function toggleEventFields() {
     } else {
         spellFields.style.display = "none";
         document.getElementById("event-spell-slots-consumed").value = "";
+        document.getElementById("event-spell-slot-level-used").value = "";
+    }
+}
+
+function resetEventForm() {
+    editingEventId = null;
+
+    document.getElementById("event-form").reset();
+    document.getElementById("event-id").value = "";
+
+    document.getElementById("event-form-heading").textContent = "Create Event";
+    document.getElementById("event-submit-btn").textContent = "Create Event";
+    document.getElementById("event-cancel-btn").style.display = "none";
+    document.getElementById("event-spell-slot-level-used").value = "";
+
+    toggleEventFields();
+}
+
+function startEditEvent(eventId) {
+    const e = eventsCache.find(ev => ev.id === eventId);
+    if (!e) return;
+
+    editingEventId = e.id;
+
+    document.getElementById("event-id").value = e.id;
+    document.getElementById("event-kind").value = e.kind || "";
+    toggleEventFields();
+
+    document.getElementById("event-source-select").value =
+        e.source_participant_id !== null && e.source_participant_id !== undefined
+            ? String(e.source_participant_id)
+            : "";
+
+    document.getElementById("event-target-select").value =
+        e.target_participant_id !== null && e.target_participant_id !== undefined
+            ? String(e.target_participant_id)
+            : "";
+
+    document.getElementById("event-amount").value = e.amount ?? "";
+    document.getElementById("event-spell-slots-consumed").value = e.spell_slots_consumed ?? "";
+    document.getElementById("event-detail").value = e.detail || "";
+    document.getElementById("event-spell-slot-level-used").value = e.spell_slot_level_used ?? "";
+
+    document.getElementById("event-form-heading").textContent = "Edit Event";
+    document.getElementById("event-submit-btn").textContent = "Save Changes";
+    document.getElementById("event-cancel-btn").style.display = "inline-block";
+
+    window.scrollTo({
+        top: document.getElementById("event-form-heading").offsetTop - 40,
+        behavior: "smooth"
+    });
+}
+
+async function deleteEvent(eventId) {
+    const e = eventsCache.find(ev => ev.id === eventId);
+    const label = e ? `${e.kind}${e.detail ? ` (${e.detail})` : ""}` : `event ${eventId}`;
+
+    if (!confirm(`Delete ${label}?`)) {
+        return;
+    }
+
+    try {
+        await api(`/api/v1/events/${eventId}`, {
+            method: "DELETE"
+        });
+
+        if (editingEventId === eventId) {
+            resetEventForm();
+        }
+
+        await loadParticipants();
+        await loadEvents();
+        await loadEncounterReview();
+        await loadAiReview();
+    } catch (err) {
+        alert(err.message);
     }
 }
 
@@ -262,12 +337,10 @@ async function loadCharacterOptions() {
     select.innerHTML = `<option value="">Select character</option>`;
 
     if (!campaignId) {
-        console.log("No campaignId available yet");
         return;
     }
 
     const characters = await api(`/api/v1/campaigns/${campaignId}/characters`);
-    console.log("Loaded characters for participant dropdown:", characters);
 
     if (!characters.length) {
         select.innerHTML = `<option value="">No characters available</option>`;
@@ -278,9 +351,9 @@ async function loadCharacterOptions() {
         const option = document.createElement("option");
         option.value = character.id;
         option.textContent =
-            `${character.name} (${character.role}` +
+            `${character.name}` +
             `${character.class_name ? ` | ${character.class_name}` : ""}` +
-            `${character.level ? ` | L${character.level}` : ""})`;
+            `${character.level ? ` | L${character.level}` : ""}`;
         select.appendChild(option);
     }
 }
@@ -321,6 +394,8 @@ async function loadParticipants() {
 
 async function loadEvents() {
     const events = await api(`/api/v1/encounters/${encounterId}/events`);
+    eventsCache = events;
+
     const container = document.getElementById("events");
     container.innerHTML = "";
 
@@ -349,8 +424,11 @@ async function loadEvents() {
                 ${sourceName} → ${targetName}
                 ${e.amount !== null && e.amount !== undefined ? ` | ${e.amount}` : ""}
                 ${e.spell_slots_consumed !== null && e.spell_slots_consumed !== undefined ? ` | spell slots used: ${e.spell_slots_consumed}` : ""}
+                ${e.spell_slot_level_used !== null && e.spell_slot_level_used !== undefined ? ` | slot level: ${e.spell_slot_level_used}` : ""}
             </span><br>
-            <span class="muted">${e.detail || ""}</span>
+            <span class="muted">${e.detail || ""}</span><br>
+            <button type="button" onclick="startEditEvent(${e.id})">Edit</button>
+            <button type="button" onclick="deleteEvent(${e.id})">Delete</button>
         `;
 
         container.appendChild(div);
@@ -418,6 +496,8 @@ document.getElementById("participant-form").addEventListener("submit", async (e)
 
         e.target.reset();
         await loadParticipants();
+        await loadEncounterReview();
+        await loadAiReview();
     } catch (err) {
         alert(err.message);
     }
@@ -458,6 +538,8 @@ document.getElementById("custom-participant-form").addEventListener("submit", as
 
         e.target.reset();
         await loadParticipants();
+        await loadEncounterReview();
+        await loadAiReview();
     } catch (err) {
         alert(err.message);
     }
@@ -483,17 +565,27 @@ document.getElementById("event-form").addEventListener("submit", async (e) => {
             document.getElementById("event-spell-slots-consumed").value
             ? Number(document.getElementById("event-spell-slots-consumed").value)
             : null,
+        spell_slot_level_used: (kind === "DAMAGE" || kind === "HEAL" || kind === "SPELL") &&
+            document.getElementById("event-spell-slot-level-used").value
+            ? Number(document.getElementById("event-spell-slot-level-used").value)
+            : null,
         detail: document.getElementById("event-detail").value || null
     };
 
     try {
-        await api(`/api/v1/encounters/${encounterId}/events`, {
-            method: "POST",
-            body: JSON.stringify(payload)
-        });
+        if (editingEventId) {
+            await api(`/api/v1/events/${editingEventId}`, {
+                method: "PUT",
+                body: JSON.stringify(payload)
+            });
+        } else {
+            await api(`/api/v1/encounters/${encounterId}/events`, {
+                method: "POST",
+                body: JSON.stringify(payload)
+            });
+        }
 
-        e.target.reset();
-        toggleEventFields();
+        resetEventForm();
 
         await loadParticipants();
         await loadEvents();
@@ -503,6 +595,9 @@ document.getElementById("event-form").addEventListener("submit", async (e) => {
         alert(err.message);
     }
 });
+
+document.getElementById("event-cancel-btn").addEventListener("click", resetEventForm);
+
 async function init() {
     try {
         await loadEncounter();
