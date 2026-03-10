@@ -1,4 +1,6 @@
-from sqlalchemy import ForeignKey, Integer, String
+from __future__ import annotations
+
+from sqlalchemy import ForeignKey, Integer, String, Text
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db.base import Base
@@ -22,17 +24,23 @@ class EncounterParticipant(Base):
     name: Mapped[str] = mapped_column(String(200), nullable=False)
     participant_type: Mapped[str] = mapped_column(String(50), nullable=False)
 
-    class_name: Mapped[str | None] = mapped_column(String(100))
-    level: Mapped[int | None] = mapped_column(Integer)
+    class_name: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    level: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    max_hp: Mapped[int | None] = mapped_column(Integer, nullable=True)
 
-    max_hp: Mapped[int | None] = mapped_column(Integer)
-    current_hp: Mapped[int | None] = mapped_column(Integer)
+    # immutable encounter-start baseline
+    initial_current_hp: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    initial_spell_slots_1: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    initial_spell_slots_2: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    initial_spell_slots_3: Mapped[int | None] = mapped_column(Integer, nullable=True)
 
-    spell_slots_1: Mapped[int | None] = mapped_column(Integer)
-    spell_slots_2: Mapped[int | None] = mapped_column(Integer)
-    spell_slots_3: Mapped[int | None] = mapped_column(Integer)
+    # mutable derived current state
+    current_hp: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    spell_slots_1: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    spell_slots_2: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    spell_slots_3: Mapped[int | None] = mapped_column(Integer, nullable=True)
 
-    notes: Mapped[str | None] = mapped_column(String(1000))
+    notes: Mapped[str | None] = mapped_column(Text, nullable=True)
 
     encounter: Mapped["Encounter"] = relationship(back_populates="participants")
     character: Mapped["Character | None"] = relationship()

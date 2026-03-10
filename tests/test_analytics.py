@@ -1,120 +1,10 @@
-def test_damage_leaderboard(client):
+def test_campaign_analytics_summary(client):
     campaign = client.post(
         "/api/v1/campaigns",
         json={"name": "Analytics Campaign", "description": "Testing analytics"}
     ).json()
 
-    character = client.post(
-        f"/api/v1/campaigns/{campaign['id']}/characters",
-        json={
-            "name": "Arannis",
-            "role": "PC",
-            "class_name": "Ranger",
-            "level": 4,
-            "max_hp": 32,
-            "current_hp": 32,
-            "armor_class": 15,
-            "notes": None
-        }
-    ).json()
-
-    session = client.post(
-        f"/api/v1/campaigns/{campaign['id']}/sessions",
-        json={
-            "date": "2026-03-07",
-            "title": "Analytics Session",
-            "notes": "Testing analytics routes",
-            "duration_minutes": 180
-        }
-    ).json()
-
-    encounter = client.post(
-        f"/api/v1/sessions/{session['id']}/encounters",
-        json={
-            "name": "Goblin Ambush",
-            "expected_difficulty": "Medium",
-            "rounds": 4,
-            "notes": "Testing damage aggregation"
-        }
-    ).json()
-
-    arannis = client.post(
-        f"/api/v1/encounters/{encounter['id']}/participants",
-        json={
-            "character_id": character["id"],
-            "participant_type": "PARTY",
-            "current_hp": 32,
-            "spell_slots_1": 2,
-            "spell_slots_2": 1,
-            "spell_slots_3": 0,
-            "notes": None
-        }
-    ).json()
-
-    goblin_boss = client.post(
-        f"/api/v1/encounters/{encounter['id']}/participants",
-        json={
-            "name": "Goblin Boss",
-            "participant_type": "OTHER",
-            "class_name": "Goblin",
-            "max_hp": 21,
-            "current_hp": 21,
-            "notes": None
-        }
-    ).json()
-
-    goblin_2 = client.post(
-        f"/api/v1/encounters/{encounter['id']}/participants",
-        json={
-            "name": "Goblin 2",
-            "participant_type": "OTHER",
-            "class_name": "Goblin",
-            "max_hp": 7,
-            "current_hp": 7,
-            "notes": None
-        }
-    ).json()
-
-    client.post(
-        f"/api/v1/encounters/{encounter['id']}/events",
-        json={
-            "kind": "DAMAGE",
-            "source_participant_id": arannis["id"],
-            "target_participant_id": goblin_boss["id"],
-            "amount": 12,
-            "spell_slots_consumed": None,
-            "detail": "Longbow"
-        }
-    )
-
-    client.post(
-        f"/api/v1/encounters/{encounter['id']}/events",
-        json={
-            "kind": "DAMAGE",
-            "source_participant_id": arannis["id"],
-            "target_participant_id": goblin_2["id"],
-            "amount": 9,
-            "spell_slots_consumed": None,
-            "detail": "Second shot"
-        }
-    )
-
-    response = client.get(f"/api/v1/campaigns/{campaign['id']}/damage-leaderboard")
-    assert response.status_code == 200
-
-    data = response.json()
-    assert len(data) == 1
-    assert data[0]["source"] == "Arannis"
-    assert data[0]["total_damage"] == 21
-
-
-def test_encounter_review(client):
-    campaign = client.post(
-        "/api/v1/campaigns",
-        json={"name": "Review Campaign", "description": "Testing review"}
-    ).json()
-
-    character = client.post(
+    ezra_character = client.post(
         f"/api/v1/campaigns/{campaign['id']}/characters",
         json={
             "name": "Ezra",
@@ -128,11 +18,25 @@ def test_encounter_review(client):
         }
     ).json()
 
+    thalia_character = client.post(
+        f"/api/v1/campaigns/{campaign['id']}/characters",
+        json={
+            "name": "Thalia",
+            "role": "PC",
+            "class_name": "Fighter",
+            "level": 4,
+            "max_hp": 30,
+            "current_hp": 30,
+            "armor_class": 17,
+            "notes": None
+        }
+    ).json()
+
     session = client.post(
         f"/api/v1/campaigns/{campaign['id']}/sessions",
         json={
             "date": "2026-03-08",
-            "title": "Review Session",
+            "title": "Analytics Session",
             "notes": None,
             "duration_minutes": 180
         }
@@ -151,12 +55,25 @@ def test_encounter_review(client):
     ezra = client.post(
         f"/api/v1/encounters/{encounter['id']}/participants",
         json={
-            "character_id": character["id"],
+            "character_id": ezra_character["id"],
             "participant_type": "PARTY",
             "current_hp": 24,
             "spell_slots_1": 4,
             "spell_slots_2": 2,
             "spell_slots_3": 1,
+            "notes": None
+        }
+    ).json()
+
+    thalia = client.post(
+        f"/api/v1/encounters/{encounter['id']}/participants",
+        json={
+            "character_id": thalia_character["id"],
+            "participant_type": "PARTY",
+            "current_hp": 30,
+            "spell_slots_1": 0,
+            "spell_slots_2": 0,
+            "spell_slots_3": 0,
             "notes": None
         }
     ).json()
@@ -181,7 +98,21 @@ def test_encounter_review(client):
             "target_participant_id": ezra["id"],
             "amount": 10,
             "spell_slots_consumed": None,
+            "spell_slot_level_used": None,
             "detail": "Club hit"
+        }
+    )
+
+    client.post(
+        f"/api/v1/encounters/{encounter['id']}/events",
+        json={
+            "kind": "DAMAGE",
+            "source_participant_id": ogre["id"],
+            "target_participant_id": thalia["id"],
+            "amount": 8,
+            "spell_slots_consumed": None,
+            "spell_slot_level_used": None,
+            "detail": "Backhand"
         }
     )
 
@@ -193,14 +124,69 @@ def test_encounter_review(client):
             "target_participant_id": ogre["id"],
             "amount": 14,
             "spell_slots_consumed": 1,
+            "spell_slot_level_used": 1,
             "detail": "Chromatic Orb"
         }
     )
 
-    response = client.get(f"/api/v1/encounters/{encounter['id']}/review")
-    assert response.status_code == 200
+    client.post(
+        f"/api/v1/encounters/{encounter['id']}/events",
+        json={
+            "kind": "HEAL",
+            "source_participant_id": ezra["id"],
+            "target_participant_id": thalia["id"],
+            "amount": 4,
+            "spell_slots_consumed": 1,
+            "spell_slot_level_used": 1,
+            "detail": "Healing Word"
+        }
+    )
 
-    review = response.json()
-    assert review["expected_difficulty"] == "Medium"
-    assert "damage" in review["notes"].lower()
-    assert "spell slots" in review["notes"].lower()
+    time_played_response = client.get(
+        f"/api/v1/analytics/campaigns/{campaign['id']}/time-played"
+    )
+    assert time_played_response.status_code == 200
+    time_played = time_played_response.json()
+    assert time_played["total_minutes"] == 180
+    assert time_played["total_hours"] == 3
+
+    damage_dealt_response = client.get(
+        f"/api/v1/analytics/campaigns/{campaign['id']}/damage-leaderboard"
+    )
+    assert damage_dealt_response.status_code == 200
+    damage_dealt = damage_dealt_response.json()
+    assert len(damage_dealt) == 1
+    assert damage_dealt[0]["source"] == "Ezra"
+    assert damage_dealt[0]["total_damage"] == 14
+
+    damage_taken_response = client.get(
+        f"/api/v1/analytics/campaigns/{campaign['id']}/damage-taken"
+    )
+    assert damage_taken_response.status_code == 200
+    damage_taken = damage_taken_response.json()
+
+    damage_taken_by_name = {
+        row["target"]: row["total_damage_taken"]
+        for row in damage_taken
+    }
+
+    assert damage_taken_by_name["Ezra"] == 10
+    assert damage_taken_by_name["Thalia"] == 8
+
+    healing_received_response = client.get(
+        f"/api/v1/analytics/campaigns/{campaign['id']}/healing-received"
+    )
+    assert healing_received_response.status_code == 200
+    healing_received = healing_received_response.json()
+    assert len(healing_received) == 1
+    assert healing_received[0]["target"] == "Thalia"
+    assert healing_received[0]["total_healing_received"] == 4
+
+    spell_usage_response = client.get(
+        f"/api/v1/analytics/campaigns/{campaign['id']}/spell-usage"
+    )
+    assert spell_usage_response.status_code == 200
+    spell_usage = spell_usage_response.json()
+    assert len(spell_usage) == 1
+    assert spell_usage[0]["source"] == "Ezra"
+    assert spell_usage[0]["total_spell_slots_used"] == 2

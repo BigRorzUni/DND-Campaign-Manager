@@ -14,6 +14,7 @@ class EventRepo:
         target_participant_id: int | None,
         amount: int | None,
         spell_slots_consumed: int | None,
+        spell_slot_level_used: int | None,
         detail: str | None,
     ) -> Event:
         obj = Event(
@@ -23,12 +24,24 @@ class EventRepo:
             target_participant_id=target_participant_id,
             amount=amount,
             spell_slots_consumed=spell_slots_consumed,
+            spell_slot_level_used=spell_slot_level_used,
             detail=detail,
         )
         db.add(obj)
         db.commit()
         db.refresh(obj)
         return obj
+
+    def update(self, db: DbSession, obj: Event, **fields) -> Event:
+        for key, value in fields.items():
+            setattr(obj, key, value)
+        db.commit()
+        db.refresh(obj)
+        return obj
+
+    def delete(self, db: DbSession, obj: Event) -> None:
+        db.delete(obj)
+        db.commit()
 
     def get(self, db: DbSession, event_id: int) -> Event | None:
         return db.get(Event, event_id)
@@ -41,6 +54,5 @@ class EventRepo:
             .all()
         )
 
-    def delete(self, db: DbSession, obj: Event) -> None:
-        db.delete(obj)
-        db.commit()
+
+event_repo = EventRepo()

@@ -72,6 +72,7 @@ def test_damage_event_reduces_target_hp_and_can_consume_spell_slots(client):
             "target_participant_id": target_participant["id"],
             "amount": 5,
             "spell_slots_consumed": 1,
+            "spell_slot_level_used": 1,
             "detail": "Inflict Wounds"
         }
     )
@@ -164,6 +165,7 @@ def test_heal_event_restores_hp_and_can_consume_spell_slots(client):
             "target_participant_id": target_participant["id"],
             "amount": 15,
             "spell_slots_consumed": 1,
+            "spell_slot_level_used": 1,
             "detail": "Cure Wounds"
         }
     )
@@ -253,6 +255,7 @@ def test_spell_event_consumes_spell_slots_without_amount(client):
             "target_participant_id": target_participant["id"],
             "amount": None,
             "spell_slots_consumed": 1,
+            "spell_slot_level_used": 1,
             "detail": "Misty Step"
         }
     )
