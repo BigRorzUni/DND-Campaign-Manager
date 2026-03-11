@@ -6,6 +6,7 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 from app.db.base import Base
 
 
+
 class Event(Base):
     __tablename__ = "events"
 
@@ -36,3 +37,14 @@ class Event(Base):
     detail: Mapped[str | None] = mapped_column(Text, nullable=True)
 
     encounter: Mapped["Encounter"] = relationship(back_populates="events")
+
+    spell_index: Mapped[str | None] = mapped_column(
+        String(100),
+        nullable=True,
+        index=True
+    )
+
+    spell_name_snapshot: Mapped[str | None] = mapped_column(
+        String(200),
+        nullable=True
+    )

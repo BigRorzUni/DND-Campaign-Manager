@@ -8,6 +8,8 @@ from app.models.session import Session
 from app.repositories.participant_repo import ParticipantRepo
 from app.schemas.participant import EncounterParticipantCreate, EncounterParticipantOut
 from app.services.ai_review_service import AiReviewService
+from app.services.spell_dataset import SpellDatasetService
+from app.repositories.character_spell_repo import CharacterSpellRepo
 
 ai_review_service = AiReviewService()
 
@@ -103,3 +105,18 @@ def delete_participant(participant_id: int, db: DbSession = Depends(get_db)):
     if not obj:
         raise HTTPException(status_code=404, detail="Participant not found")
     participant_repo.delete(db, obj)
+
+@router.get("/{participant_id}/spells")
+def get_participant_spells(participant_id: int, db: DbSession = Depends(get_db)):
+
+    participant = db.get(EncounterParticipantOut, participant_id)
+
+    if not participant:
+        raise HTTPException(404, "Participant not found")
+
+    # party member
+    if participant.character_id:
+        return CharacterSpellRepo.list_for_character(db, participant.character_id)
+
+    # NPC / enemy → allow searching full dataset
+    return SpellDatasetService.list_spells()

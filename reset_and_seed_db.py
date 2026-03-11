@@ -13,6 +13,7 @@ from app.models.encounter import Encounter
 from app.models.encounter_participant import EncounterParticipant
 from app.models.event import Event
 from app.services.encounter_state_service import recalculate_encounter_state
+from app.models.character_spell import CharacterSpell
 
 
 DB_PATH = Path("dev.db")
@@ -64,6 +65,27 @@ def seed_database() -> None:
         db.commit()
         db.refresh(ezra)
         db.refresh(thalia)
+
+        ezra_fireball = CharacterSpell(
+            character_id=ezra.id,
+            spell_index="fireball",
+            spell_name_snapshot="Fireball",
+            spell_level=3,
+            brief_description="A bright streak flashes from your pointing finger to a point you choose, then blossoms with a low roar into an explosion of flame.",
+            notes="Signature spell",
+        )
+
+        ezra_misty = CharacterSpell(
+            character_id=ezra.id,
+            spell_index="misty-step",
+            spell_name_snapshot="Misty Step",
+            spell_level=2,
+            brief_description="Briefly surrounded by silvery mist, you teleport up to 30 feet to an unoccupied space you can see.",
+            notes=None,
+        )
+
+        db.add_all([ezra_fireball, ezra_misty])
+        db.commit()
 
         session = Session(
             campaign_id=campaign.id,
@@ -144,12 +166,31 @@ def seed_database() -> None:
             spell_slots_3=None,
             notes="Main enemy",
         )
+        goblin_shaman_p = EncounterParticipant(
+            encounter_id=encounter.id,
+            character_id=None,
+            name="Goblin Shaman",
+            participant_type="OTHER",
+            class_name="Goblin Shaman",
+            level=3,
+            max_hp=18,
+            initial_current_hp=18,
+            initial_spell_slots_1=2,
+            initial_spell_slots_2=1,
+            initial_spell_slots_3=0,
+            current_hp=18,
+            spell_slots_1=2,
+            spell_slots_2=1,
+            spell_slots_3=0,
+            notes="Enemy support caster",
+        )
 
-        db.add_all([ezra_p, thalia_p, ogre_p])
+        db.add_all([ezra_p, thalia_p, ogre_p, goblin_shaman_p])
         db.commit()
         db.refresh(ezra_p)
         db.refresh(thalia_p)
         db.refresh(ogre_p)
+        db.refresh(goblin_shaman_p)
 
         events = [
             Event(
@@ -160,6 +201,8 @@ def seed_database() -> None:
                 amount=8,
                 spell_slots_consumed=None,
                 spell_slot_level_used=None,
+                spell_index=None,
+                spell_name_snapshot=None,
                 detail="Club attack",
             ),
             Event(
@@ -170,6 +213,8 @@ def seed_database() -> None:
                 amount=14,
                 spell_slots_consumed=1,
                 spell_slot_level_used=1,
+                spell_index="chromatic-orb",
+                spell_name_snapshot="Chromatic Orb",
                 detail="Chromatic Orb",
             ),
             Event(
@@ -180,6 +225,8 @@ def seed_database() -> None:
                 amount=4,
                 spell_slots_consumed=0,
                 spell_slot_level_used=None,
+                spell_index=None,
+                spell_name_snapshot=None,
                 detail="Potion / minor recovery",
             ),
             Event(
@@ -190,6 +237,8 @@ def seed_database() -> None:
                 amount=None,
                 spell_slots_consumed=1,
                 spell_slot_level_used=2,
+                spell_index="misty-step",
+                spell_name_snapshot="Misty Step",
                 detail="Misty Step to reposition",
             ),
             Event(
@@ -200,7 +249,33 @@ def seed_database() -> None:
                 amount=10,
                 spell_slots_consumed=None,
                 spell_slot_level_used=None,
+                spell_index=None,
+                spell_name_snapshot=None,
                 detail="Thrown debris",
+            ),
+            Event(
+                encounter_id=encounter.id,
+                kind="SPELL",
+                source_participant_id=goblin_shaman_p.id,
+                target_participant_id=thalia_p.id,
+                amount=None,
+                spell_slots_consumed=1,
+                spell_slot_level_used=1,
+                spell_index="bane",
+                spell_name_snapshot="Bane",
+                detail="Goblin Shaman weakens the party",
+            ),
+            Event(
+                encounter_id=encounter.id,
+                kind="DAMAGE",
+                source_participant_id=goblin_shaman_p.id,
+                target_participant_id=ezra_p.id,
+                amount=6,
+                spell_slots_consumed=1,
+                spell_slot_level_used=1,
+                spell_index="magic-missile",
+                spell_name_snapshot="Magic Missile",
+                detail="Goblin Shaman casts Magic Missile",
             ),
         ]
 
@@ -214,6 +289,7 @@ def seed_database() -> None:
         print(f"Campaign ID: {campaign.id}")
         print(f"Session ID: {session.id}")
         print(f"Encounter ID: {encounter.id}")
+        print(f"NPC caster participant ID: {goblin_shaman_p.id}")
 
     finally:
         db.close()

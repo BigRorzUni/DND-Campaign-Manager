@@ -6,6 +6,7 @@ from app.repositories.event_repo import event_repo
 from app.schemas.event import EventCreate, EventOut, EventUpdate
 from app.services.ai_review_service import AiReviewService
 from app.services.encounter_state_service import recalculate_encounter_state
+from app.services.spell_dataset import SpellDatasetService
 
 router = APIRouter(tags=["events"])
 ai_review_service = AiReviewService()
@@ -21,6 +22,17 @@ def create_event(
     payload: EventCreate,
     db: DbSession = Depends(get_db),
 ):
+    spell_index = payload.spell_index
+    spell_name_snapshot = None
+
+    if spell_index:
+        spell = SpellDatasetService.get_spell(spell_index)
+
+        if not spell:
+            raise HTTPException(status_code=404, detail="Spell not found")
+
+        spell_name_snapshot = spell["name"]
+        
     event = event_repo.create(
         db,
         encounter_id=encounter_id,
@@ -31,6 +43,8 @@ def create_event(
         spell_slots_consumed=payload.spell_slots_consumed,
         spell_slot_level_used=payload.spell_slot_level_used,
         detail=payload.detail,
+        spell_index=spell_index,
+        spell_name_snapshot=spell_name_snapshot,
     )
 
     recalculate_encounter_state(db, encounter_id)

@@ -9,6 +9,7 @@ class EventCreate(BaseModel):
     spell_slots_consumed: int | None = Field(default=None, ge=0)
     spell_slot_level_used: int | None = Field(default=None, ge=1, le=3)
     detail: str | None = Field(default=None, max_length=4000)
+    spell_index: str | None = None
 
 
 class EventUpdate(BaseModel):
@@ -19,6 +20,7 @@ class EventUpdate(BaseModel):
     spell_slots_consumed: int | None = Field(default=None, ge=0)
     spell_slot_level_used: int | None = Field(default=None, ge=1, le=3)
     detail: str | None = Field(default=None, max_length=4000)
+    spell_index: str | None = None
 
 
 class EventOut(BaseModel):
@@ -31,5 +33,7 @@ class EventOut(BaseModel):
     spell_slots_consumed: int | None
     spell_slot_level_used: int | None
     detail: str | None
+    spell_index: str | None
+    spell_name_snapshot: str | None
 
     model_config = {"from_attributes": True}

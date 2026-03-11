@@ -105,6 +105,32 @@
                 <input id="event-amount" type="number" placeholder="Amount" />
             </div>
 
+            <div id="spell-select-container">
+                <label for="event-spell-mode">Spell</label>
+
+                <div id="event-party-spell-container" style="display:none;">
+                    <select id="event-spell">
+                        <option value="">No spell</option>
+                    </select>
+                </div>
+
+                <div id="event-npc-spell-container" style="display:none; position: relative;">
+                    <input
+                        id="event-spell-search-input"
+                        type="text"
+                        placeholder="Start typing a spell name..."
+                        autocomplete="off"
+                    />
+                    <input type="hidden" id="event-selected-spell-index" />
+                    <div
+                        id="event-spell-autocomplete"
+                        style="display:none; position:absolute; top:100%; left:0; right:0; z-index:10; background:white; border:1px solid #ccc; border-top:none; max-height:240px; overflow-y:auto;"
+                    ></div>
+                </div>
+            </div>
+
+            <div id="spell-description" class="muted"></div>
+
             <div id="spell-fields" style="display: none;">
                 <input id="event-spell-slots-consumed" type="number" min="0" placeholder="Spell slots used (optional)" />
                 <select id="event-spell-slot-level-used">
@@ -112,6 +138,12 @@
                     <option value="1">Level 1</option>
                     <option value="2">Level 2</option>
                     <option value="3">Level 3</option>
+                    <option value="4">Level 4</option>
+                    <option value="5">Level 5</option>
+                    <option value="6">Level 6</option>
+                    <option value="7">Level 7</option>
+                    <option value="8">Level 8</option>
+                    <option value="9">Level 9</option>
                 </select>
             </div>
 
@@ -127,6 +159,9 @@
 let participantsCache = [];
 let eventsCache = [];
 let editingEventId = null;
+
+let npcSpellSearchResultsCache = [];
+let npcSpellSearchDebounceHandle = null;
 
 const encounterId = Number(
     document.getElementById("encounter-page").dataset.encounterId
@@ -151,6 +186,93 @@ async function api(path, options = {}) {
 
     if (response.status === 204) return null;
     return response.json();
+}
+
+function escapeHtml(value) {
+    return String(value ?? "")
+        .replaceAll("&", "&amp;")
+        .replaceAll("<", "&lt;")
+        .replaceAll(">", "&gt;")
+        .replaceAll('"', "&quot;")
+        .replaceAll("'", "&#039;");
+}
+
+function participantHasAnySpellSlots(participant) {
+    return (
+        (participant.spell_slots_1 ?? 0) > 0 ||
+        (participant.spell_slots_2 ?? 0) > 0 ||
+        (participant.spell_slots_3 ?? 0) > 0
+    );
+}
+
+function participantCanCastSpellLevel(participant, spellLevel) {
+    if (spellLevel === 0) return true;
+    if (spellLevel === 1) return (participant.spell_slots_1 ?? 0) > 0;
+    if (spellLevel === 2) return (participant.spell_slots_2 ?? 0) > 0;
+    if (spellLevel === 3) return (participant.spell_slots_3 ?? 0) > 0;
+    return false;
+}
+
+function getSelectedSourceParticipant() {
+    const sourceId = document.getElementById("event-source-select").value
+        ? Number(document.getElementById("event-source-select").value)
+        : null;
+
+    if (!sourceId) return null;
+    return participantsCache.find(p => p.id === sourceId) || null;
+}
+
+function isPartySourceParticipant(participant) {
+    return !!(participant && participant.character_id);
+}
+
+function getSelectedSpellIndex() {
+    const participant = getSelectedSourceParticipant();
+
+    if (!participant) return null;
+
+    if (isPartySourceParticipant(participant)) {
+        return document.getElementById("event-spell").value || null;
+    }
+
+    return document.getElementById("event-selected-spell-index").value || null;
+}
+
+function setSpellInputModeForParticipant(participant) {
+    const partyContainer = document.getElementById("event-party-spell-container");
+    const npcContainer = document.getElementById("event-npc-spell-container");
+
+    if (!participant) {
+        partyContainer.style.display = "none";
+        npcContainer.style.display = "none";
+        return;
+    }
+
+    if (isPartySourceParticipant(participant)) {
+        partyContainer.style.display = "block";
+        npcContainer.style.display = "none";
+    } else {
+        partyContainer.style.display = "none";
+        npcContainer.style.display = "block";
+    }
+}
+
+function clearNpcSpellAutocomplete() {
+    document.getElementById("event-spell-search-input").value = "";
+    document.getElementById("event-selected-spell-index").value = "";
+    const autocomplete = document.getElementById("event-spell-autocomplete");
+    autocomplete.innerHTML = "";
+    autocomplete.style.display = "none";
+    npcSpellSearchResultsCache = [];
+}
+
+function clearSpellSelection(message = "") {
+    const spellSelect = document.getElementById("event-spell");
+    const spellDescription = document.getElementById("spell-description");
+
+    spellSelect.innerHTML = `<option value="">No spell</option>`;
+    clearNpcSpellAutocomplete();
+    spellDescription.textContent = message;
 }
 
 function populateEventParticipantSelectors() {
@@ -207,10 +329,221 @@ function resetEventForm() {
     document.getElementById("event-cancel-btn").style.display = "none";
     document.getElementById("event-spell-slot-level-used").value = "";
 
+    clearSpellSelection();
+    setSpellInputModeForParticipant(null);
     toggleEventFields();
 }
 
-function startEditEvent(eventId) {
+async function loadPartySpellsForParticipant(participant, selectedSpellIndex = null) {
+    const spellSelect = document.getElementById("event-spell");
+    const spellDescription = document.getElementById("spell-description");
+    const slotsConsumedInput = document.getElementById("event-spell-slots-consumed");
+    const slotLevelSelect = document.getElementById("event-spell-slot-level-used");
+
+    spellSelect.innerHTML = `<option value="">No spell</option>`;
+    spellDescription.textContent = "";
+
+    if (!participant || !participant.character_id) {
+        return;
+    }
+
+    let spells = await api(`/api/v1/characters/${participant.character_id}/spells`);
+    spells = spells.filter(spell => participantCanCastSpellLevel(participant, spell.spell_level));
+
+    if (!spells.length) {
+        spellDescription.textContent = "No castable learnt spells available for this participant.";
+        slotsConsumedInput.value = "";
+        slotLevelSelect.value = "";
+        return;
+    }
+
+    for (const spell of spells) {
+        const option = document.createElement("option");
+        option.value = spell.spell_index;
+        option.textContent = `${spell.spell_name_snapshot} (Level ${spell.spell_level})`;
+        option.dataset.name = spell.spell_name_snapshot || "";
+        option.dataset.level = spell.spell_level ?? "";
+        option.dataset.description = spell.brief_description || "";
+        spellSelect.appendChild(option);
+    }
+
+    if (selectedSpellIndex) {
+        spellSelect.value = selectedSpellIndex;
+        if (spellSelect.value === selectedSpellIndex) {
+            await updateSpellDescription(selectedSpellIndex);
+        }
+    }
+}
+
+async function searchNpcSpellsAutocomplete(query) {
+    const participant = getSelectedSourceParticipant();
+    const autocomplete = document.getElementById("event-spell-autocomplete");
+    const preview = document.getElementById("spell-description");
+
+    document.getElementById("event-selected-spell-index").value = "";
+    preview.textContent = "";
+
+    if (!participant || isPartySourceParticipant(participant)) {
+        autocomplete.innerHTML = "";
+        autocomplete.style.display = "none";
+        return;
+    }
+
+    if (!participantHasAnySpellSlots(participant)) {
+        autocomplete.innerHTML = `<div style="padding:8px;" class="muted">This participant has no spell slots available.</div>`;
+        autocomplete.style.display = "block";
+        return;
+    }
+
+    const trimmed = query.trim();
+    if (!trimmed) {
+        autocomplete.innerHTML = "";
+        autocomplete.style.display = "none";
+        npcSpellSearchResultsCache = [];
+        return;
+    }
+
+    const results = await api(`/api/v1/spells?q=${encodeURIComponent(trimmed)}`);
+    const filtered = results.filter(spell => participantCanCastSpellLevel(participant, spell.level));
+    npcSpellSearchResultsCache = filtered;
+
+    if (!filtered.length) {
+        autocomplete.innerHTML = `<div style="padding:8px;" class="muted">No castable spells found</div>`;
+        autocomplete.style.display = "block";
+        return;
+    }
+
+    autocomplete.innerHTML = filtered.slice(0, 10).map(spell => `
+        <div
+            class="event-spell-autocomplete-item"
+            data-index="${escapeHtml(spell.index)}"
+            data-name="${escapeHtml(spell.name || "")}"
+            data-level="${escapeHtml(spell.level ?? "")}"
+            data-description="${escapeHtml(spell.brief_description || "")}"
+            style="padding:8px; border-bottom:1px solid #eee; cursor:pointer;"
+        >
+            <strong>${escapeHtml(spell.name)}</strong>
+            <span class="muted"> | Level ${escapeHtml(spell.level)}</span><br>
+            <span class="muted">${escapeHtml(spell.brief_description || "")}</span>
+        </div>
+    `).join("");
+
+    autocomplete.style.display = "block";
+
+    for (const item of autocomplete.querySelectorAll(".event-spell-autocomplete-item")) {
+        item.addEventListener("click", async () => {
+            const spellIndex = item.dataset.index;
+            const spellName = item.dataset.name || spellIndex;
+
+            document.getElementById("event-selected-spell-index").value = spellIndex;
+            document.getElementById("event-spell-search-input").value = spellName;
+            autocomplete.style.display = "none";
+
+            await updateSpellDescription(spellIndex);
+        });
+    }
+}
+
+async function loadSpellsForParticipant(participantId, selectedSpellIndex = null, selectedSpellName = null) {
+    const spellDescription = document.getElementById("spell-description");
+    const slotsConsumedInput = document.getElementById("event-spell-slots-consumed");
+    const slotLevelSelect = document.getElementById("event-spell-slot-level-used");
+
+    clearSpellSelection();
+
+    if (!participantId) {
+        setSpellInputModeForParticipant(null);
+        return;
+    }
+
+    const participant = participantsCache.find(p => p.id === participantId);
+    if (!participant) {
+        setSpellInputModeForParticipant(null);
+        return;
+    }
+
+    setSpellInputModeForParticipant(participant);
+
+    if (isPartySourceParticipant(participant)) {
+        await loadPartySpellsForParticipant(participant, selectedSpellIndex);
+        return;
+    }
+
+    if (!participantHasAnySpellSlots(participant)) {
+        spellDescription.textContent = "This participant has no spell slots available.";
+        slotsConsumedInput.value = "";
+        slotLevelSelect.value = "";
+        return;
+    }
+
+    if (selectedSpellIndex) {
+        document.getElementById("event-selected-spell-index").value = selectedSpellIndex;
+        document.getElementById("event-spell-search-input").value = selectedSpellName || "";
+        await updateSpellDescription(selectedSpellIndex);
+    }
+}
+
+async function updateSpellDescription(spellIndex) {
+    const spellDescription = document.getElementById("spell-description");
+    const slotLevelSelect = document.getElementById("event-spell-slot-level-used");
+    const slotsConsumedInput = document.getElementById("event-spell-slots-consumed");
+    const participant = getSelectedSourceParticipant();
+
+    if (!spellIndex) {
+        spellDescription.textContent = "";
+        slotLevelSelect.value = "";
+        slotsConsumedInput.value = "";
+        return;
+    }
+
+    if (participant && isPartySourceParticipant(participant)) {
+        const spellSelect = document.getElementById("event-spell");
+        const selectedOption = spellSelect.options[spellSelect.selectedIndex];
+
+        if (selectedOption && selectedOption.value) {
+            const name = selectedOption.dataset.name || selectedOption.textContent || spellIndex;
+            const level = selectedOption.dataset.level || "";
+            const description = selectedOption.dataset.description || "";
+
+            spellDescription.textContent =
+                `${name}${level !== "" ? ` | Level ${level}` : ""}${description ? ` — ${description}` : ""}`;
+
+            if (level !== "" && String(level) !== "0") {
+                slotLevelSelect.value = String(level);
+                slotsConsumedInput.value = "1";
+            } else {
+                slotLevelSelect.value = "";
+                slotsConsumedInput.value = "";
+            }
+            return;
+        }
+    }
+
+    const spell = await api(`/api/v1/spells/${encodeURIComponent(spellIndex)}`);
+
+    let description = "";
+    if (Array.isArray(spell.desc) && spell.desc.length > 0) {
+        description = spell.desc[0];
+    } else if (typeof spell.desc === "string") {
+        description = spell.desc;
+    } else if (spell.brief_description) {
+        description = spell.brief_description;
+    }
+
+    const schoolName = spell.school?.name || spell.school || "";
+    spellDescription.textContent =
+        `${spell.name} | Level ${spell.level}${schoolName ? ` | ${schoolName}` : ""}${description ? ` — ${description}` : ""}`;
+
+    if (spell.level !== undefined && spell.level !== null && spell.level !== 0) {
+        slotLevelSelect.value = String(spell.level);
+        slotsConsumedInput.value = "1";
+    } else {
+        slotLevelSelect.value = "";
+        slotsConsumedInput.value = "";
+    }
+}
+
+async function startEditEvent(eventId) {
     const e = eventsCache.find(ev => ev.id === eventId);
     if (!e) return;
 
@@ -234,6 +567,14 @@ function startEditEvent(eventId) {
     document.getElementById("event-spell-slots-consumed").value = e.spell_slots_consumed ?? "";
     document.getElementById("event-detail").value = e.detail || "";
     document.getElementById("event-spell-slot-level-used").value = e.spell_slot_level_used ?? "";
+
+    await loadSpellsForParticipant(
+        e.source_participant_id !== null && e.source_participant_id !== undefined
+            ? e.source_participant_id
+            : null,
+        e.spell_index || null,
+        e.spell_name_snapshot || null
+    );
 
     document.getElementById("event-form-heading").textContent = "Edit Event";
     document.getElementById("event-submit-btn").textContent = "Save Changes";
@@ -365,7 +706,34 @@ async function loadParticipants() {
     const container = document.getElementById("participants");
     container.innerHTML = "";
 
+    const previouslySelectedSourceId = document.getElementById("event-source-select").value || "";
+    const previouslySelectedTargetId = document.getElementById("event-target-select").value || "";
+    const previouslySelectedSpellIndex = getSelectedSpellIndex();
+    const previousNpcSpellName = document.getElementById("event-spell-search-input").value || "";
+
     populateEventParticipantSelectors();
+
+    if (previouslySelectedSourceId) {
+        document.getElementById("event-source-select").value = previouslySelectedSourceId;
+    }
+    if (previouslySelectedTargetId) {
+        document.getElementById("event-target-select").value = previouslySelectedTargetId;
+    }
+
+    const selectedSourceId = document.getElementById("event-source-select").value
+        ? Number(document.getElementById("event-source-select").value)
+        : null;
+
+    if (selectedSourceId) {
+        await loadSpellsForParticipant(
+            selectedSourceId,
+            previouslySelectedSpellIndex || null,
+            previousNpcSpellName || null
+        );
+    } else {
+        clearSpellSelection();
+        setSpellInputModeForParticipant(null);
+    }
 
     if (!participants.length) {
         container.innerHTML = "<p class='muted'>No participants yet.</p>";
@@ -377,15 +745,15 @@ async function loadParticipants() {
         div.className = "item";
 
         div.innerHTML = `
-            <strong>${p.name}</strong> (${p.participant_type})<br>
-            ${p.class_name ? `Class/Type: ${p.class_name}<br>` : ""}
-            ${p.level !== null && p.level !== undefined ? `Level: ${p.level}<br>` : ""}
-            ${p.max_hp !== null && p.max_hp !== undefined ? `Max HP: ${p.max_hp}<br>` : ""}
-            ${p.current_hp !== null && p.current_hp !== undefined ? `Current HP: ${p.current_hp}<br>` : ""}
-            ${p.spell_slots_1 !== null && p.spell_slots_1 !== undefined ? `Spell Slots L1: ${p.spell_slots_1}<br>` : ""}
-            ${p.spell_slots_2 !== null && p.spell_slots_2 !== undefined ? `Spell Slots L2: ${p.spell_slots_2}<br>` : ""}
-            ${p.spell_slots_3 !== null && p.spell_slots_3 !== undefined ? `Spell Slots L3: ${p.spell_slots_3}<br>` : ""}
-            ${p.notes ? `${p.notes}<br>` : ""}
+            <strong>${escapeHtml(p.name)}</strong> (${escapeHtml(p.participant_type)})<br>
+            ${p.class_name ? `Class/Type: ${escapeHtml(p.class_name)}<br>` : ""}
+            ${p.level !== null && p.level !== undefined ? `Level: ${escapeHtml(p.level)}<br>` : ""}
+            ${p.max_hp !== null && p.max_hp !== undefined ? `Max HP: ${escapeHtml(p.max_hp)}<br>` : ""}
+            ${p.current_hp !== null && p.current_hp !== undefined ? `Current HP: ${escapeHtml(p.current_hp)}<br>` : ""}
+            ${p.spell_slots_1 !== null && p.spell_slots_1 !== undefined ? `Spell Slots L1: ${escapeHtml(p.spell_slots_1)}<br>` : ""}
+            ${p.spell_slots_2 !== null && p.spell_slots_2 !== undefined ? `Spell Slots L2: ${escapeHtml(p.spell_slots_2)}<br>` : ""}
+            ${p.spell_slots_3 !== null && p.spell_slots_3 !== undefined ? `Spell Slots L3: ${escapeHtml(p.spell_slots_3)}<br>` : ""}
+            ${p.notes ? `${escapeHtml(p.notes)}<br>` : ""}
         `;
 
         container.appendChild(div);
@@ -415,18 +783,23 @@ async function loadEvents() {
         const sourceName = sourceParticipant ? sourceParticipant.name : "Unknown";
         const targetName = targetParticipant ? targetParticipant.name : "Unknown";
 
+        const spellLabel = e.spell_name_snapshot
+            ? `${e.spell_name_snapshot}${e.spell_brief_description ? ` — ${e.spell_brief_description}` : ""}`
+            : "";
+
         const div = document.createElement("div");
         div.className = "item";
 
         div.innerHTML = `
-            <strong>${e.kind}</strong><br>
+            <strong>${escapeHtml(e.kind)}</strong><br>
             <span class="muted">
-                ${sourceName} → ${targetName}
-                ${e.amount !== null && e.amount !== undefined ? ` | ${e.amount}` : ""}
-                ${e.spell_slots_consumed !== null && e.spell_slots_consumed !== undefined ? ` | spell slots used: ${e.spell_slots_consumed}` : ""}
-                ${e.spell_slot_level_used !== null && e.spell_slot_level_used !== undefined ? ` | slot level: ${e.spell_slot_level_used}` : ""}
+                ${escapeHtml(sourceName)} → ${escapeHtml(targetName)}
+                ${e.amount !== null && e.amount !== undefined ? ` | ${escapeHtml(e.amount)}` : ""}
+                ${spellLabel ? ` | ${escapeHtml(spellLabel)}` : ""}
+                ${e.spell_slots_consumed !== null && e.spell_slots_consumed !== undefined ? ` | spell slots used: ${escapeHtml(e.spell_slots_consumed)}` : ""}
+                ${e.spell_slot_level_used !== null && e.spell_slot_level_used !== undefined ? ` | slot level: ${escapeHtml(e.spell_slot_level_used)}` : ""}
             </span><br>
-            <span class="muted">${e.detail || ""}</span><br>
+            <span class="muted">${escapeHtml(e.detail || "")}</span><br>
             <button type="button" onclick="startEditEvent(${e.id})">Edit</button>
             <button type="button" onclick="deleteEvent(${e.id})">Delete</button>
         `;
@@ -461,6 +834,44 @@ async function loadEncounterReview() {
 }
 
 document.getElementById("event-kind").addEventListener("change", toggleEventFields);
+
+document.getElementById("event-source-select").addEventListener("change", async (e) => {
+    const participantId = e.target.value ? Number(e.target.value) : null;
+    await loadSpellsForParticipant(participantId);
+});
+
+document.getElementById("event-spell").addEventListener("change", async (e) => {
+    const spellIndex = e.target.value || null;
+    await updateSpellDescription(spellIndex);
+});
+
+document.getElementById("event-spell-search-input").addEventListener("input", (e) => {
+    const query = e.target.value;
+
+    if (npcSpellSearchDebounceHandle) {
+        clearTimeout(npcSpellSearchDebounceHandle);
+    }
+
+    npcSpellSearchDebounceHandle = setTimeout(async () => {
+        try {
+            await searchNpcSpellsAutocomplete(query);
+        } catch (err) {
+            const autocomplete = document.getElementById("event-spell-autocomplete");
+            autocomplete.innerHTML = `<div style="padding:8px;" class="muted">Search failed</div>`;
+            autocomplete.style.display = "block";
+            document.getElementById("spell-description").textContent = err.message;
+        }
+    }, 250);
+});
+
+document.addEventListener("click", (e) => {
+    const autocomplete = document.getElementById("event-spell-autocomplete");
+    const input = document.getElementById("event-spell-search-input");
+
+    if (!autocomplete.contains(e.target) && e.target !== input) {
+        autocomplete.style.display = "none";
+    }
+});
 
 document.getElementById("participant-form").addEventListener("submit", async (e) => {
     e.preventDefault();
@@ -561,6 +972,7 @@ document.getElementById("event-form").addEventListener("submit", async (e) => {
         amount: (kind === "DAMAGE" || kind === "HEAL") && document.getElementById("event-amount").value
             ? Number(document.getElementById("event-amount").value)
             : null,
+        spell_index: getSelectedSpellIndex(),
         spell_slots_consumed: (kind === "DAMAGE" || kind === "HEAL" || kind === "SPELL") &&
             document.getElementById("event-spell-slots-consumed").value
             ? Number(document.getElementById("event-spell-slots-consumed").value)
@@ -606,6 +1018,9 @@ async function init() {
         await loadEvents();
         await loadEncounterReview();
         await loadAiReview();
+        toggleEventFields();
+        clearSpellSelection();
+        setSpellInputModeForParticipant(null);
     } catch (err) {
         console.error("Encounter page init failed:", err);
         alert(err.message);

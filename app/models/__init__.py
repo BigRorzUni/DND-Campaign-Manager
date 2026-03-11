@@ -6,3 +6,4 @@ from app.models.character import Character
 # from app.models.encounter_participant_state import EncounterParticipantState
 from app.models.character_resource_state import CharacterResourceState 
 from app.models.encounter_participant import EncounterParticipant
+from app.models.character_spell import CharacterSpell
