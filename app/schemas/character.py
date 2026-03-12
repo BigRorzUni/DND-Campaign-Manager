@@ -9,6 +9,17 @@ class CharacterCreate(BaseModel):
     max_hp: int | None = Field(default=None, ge=0)
     current_hp: int | None = Field(default=None, ge=0)
     armor_class: int | None = Field(default=None, ge=0)
+
+    spell_slots_1: int | None = Field(default=None, ge=0)
+    spell_slots_2: int | None = Field(default=None, ge=0)
+    spell_slots_3: int | None = Field(default=None, ge=0)
+    spell_slots_4: int | None = Field(default=None, ge=0)
+    spell_slots_5: int | None = Field(default=None, ge=0)
+    spell_slots_6: int | None = Field(default=None, ge=0)
+    spell_slots_7: int | None = Field(default=None, ge=0)
+    spell_slots_8: int | None = Field(default=None, ge=0)
+    spell_slots_9: int | None = Field(default=None, ge=0)
+
     notes: str | None = Field(default=None, max_length=2000)
 
 
@@ -20,6 +31,17 @@ class CharacterUpdate(BaseModel):
     max_hp: int | None = Field(default=None, ge=0)
     current_hp: int | None = Field(default=None, ge=0)
     armor_class: int | None = Field(default=None, ge=0)
+
+    spell_slots_1: int | None = Field(default=None, ge=0)
+    spell_slots_2: int | None = Field(default=None, ge=0)
+    spell_slots_3: int | None = Field(default=None, ge=0)
+    spell_slots_4: int | None = Field(default=None, ge=0)
+    spell_slots_5: int | None = Field(default=None, ge=0)
+    spell_slots_6: int | None = Field(default=None, ge=0)
+    spell_slots_7: int | None = Field(default=None, ge=0)
+    spell_slots_8: int | None = Field(default=None, ge=0)
+    spell_slots_9: int | None = Field(default=None, ge=0)
+
     notes: str | None = Field(default=None, max_length=2000)
 
 
@@ -33,6 +55,17 @@ class CharacterOut(BaseModel):
     max_hp: int | None
     current_hp: int | None
     armor_class: int | None
+
+    spell_slots_1: int | None
+    spell_slots_2: int | None
+    spell_slots_3: int | None
+    spell_slots_4: int | None
+    spell_slots_5: int | None
+    spell_slots_6: int | None
+    spell_slots_7: int | None
+    spell_slots_8: int | None
+    spell_slots_9: int | None
+
     notes: str | None
 
     model_config = {"from_attributes": True}

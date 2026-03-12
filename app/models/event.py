@@ -48,3 +48,5 @@ class Event(Base):
         String(200),
         nullable=True
     )
+
+    spell_brief_description: Mapped[str | None] = mapped_column(String(1000), nullable=True)

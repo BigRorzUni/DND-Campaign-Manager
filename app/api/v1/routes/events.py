@@ -11,6 +11,26 @@ from app.services.spell_dataset import SpellDatasetService
 router = APIRouter(tags=["events"])
 ai_review_service = AiReviewService()
 
+def resolve_spell_fields(spell_index: str | None) -> tuple[str | None, str | None, int | None, int | None]:
+    if not spell_index:
+        return None, None, None, None
+
+    spell = SpellDatasetService.get_spell(spell_index)
+    if not spell:
+        raise HTTPException(status_code=404, detail="Spell not found in dataset")
+
+    level = spell.get("level")
+    name = spell.get("name")
+    brief_description = spell.get("brief_description")
+
+    if level is None:
+        raise HTTPException(status_code=400, detail="Spell level missing from dataset")
+
+    if level == 0:
+        return spell_index, name, brief_description, None
+
+    return spell_index, name, brief_description, level
+
 
 @router.post(
     "/encounters/{encounter_id}/events",
@@ -22,17 +42,27 @@ def create_event(
     payload: EventCreate,
     db: DbSession = Depends(get_db),
 ):
-    spell_index = payload.spell_index
+    encounter = db.get(encounter, encounter_id)
+    if not encounter:
+        raise HTTPException(status_code=404, detail="Encounter not found")
+
+    spell_index = None
     spell_name_snapshot = None
+    spell_brief_description = None
+    spell_slot_level_used = None
+    spell_slots_consumed = None
 
-    if spell_index:
-        spell = SpellDatasetService.get_spell(spell_index)
+    if payload.spell_index:
+        (
+            spell_index,
+            spell_name_snapshot,
+            spell_brief_description,
+            spell_slot_level_used,
+        ) = resolve_spell_fields(payload.spell_index)
 
-        if not spell:
-            raise HTTPException(status_code=404, detail="Spell not found")
+        if spell_slot_level_used is not None:
+            spell_slots_consumed = 1
 
-        spell_name_snapshot = spell["name"]
-        
     event = event_repo.create(
         db,
         encounter_id=encounter_id,
@@ -40,11 +70,12 @@ def create_event(
         source_participant_id=payload.source_participant_id,
         target_participant_id=payload.target_participant_id,
         amount=payload.amount,
-        spell_slots_consumed=payload.spell_slots_consumed,
-        spell_slot_level_used=payload.spell_slot_level_used,
-        detail=payload.detail,
         spell_index=spell_index,
         spell_name_snapshot=spell_name_snapshot,
+        spell_brief_description=spell_brief_description,
+        spell_slots_consumed=spell_slots_consumed,
+        spell_slot_level_used=spell_slot_level_used,
+        detail=payload.detail,
     )
 
     recalculate_encounter_state(db, encounter_id)
@@ -60,10 +91,7 @@ def list_events(encounter_id: int, db: DbSession = Depends(get_db)):
     return event_repo.list_for_encounter(db, encounter_id)
 
 
-@router.put(
-    "/events/{event_id}",
-    response_model=EventOut,
-)
+@router.put("/events/{event_id}", response_model=EventOut)
 def update_event(
     event_id: int,
     payload: EventUpdate,
@@ -73,15 +101,35 @@ def update_event(
     if not event:
         raise HTTPException(status_code=404, detail="Event not found")
 
+    spell_index = None
+    spell_name_snapshot = None
+    spell_brief_description = None
+    spell_slot_level_used = None
+    spell_slots_consumed = None
+
+    if payload.spell_index:
+        (
+            spell_index,
+            spell_name_snapshot,
+            spell_brief_description,
+            spell_slot_level_used,
+        ) = resolve_spell_fields(payload.spell_index)
+
+        if spell_slot_level_used is not None:
+            spell_slots_consumed = 1
+
     updated = event_repo.update(
         db,
         event,
-        kind=payload.kind if payload.kind is not None else event.kind,
+        kind=payload.kind,
         source_participant_id=payload.source_participant_id,
         target_participant_id=payload.target_participant_id,
         amount=payload.amount,
-        spell_slots_consumed=payload.spell_slots_consumed,
-        spell_slot_level_used=payload.spell_slot_level_used,
+        spell_index=spell_index,
+        spell_name_snapshot=spell_name_snapshot,
+        spell_brief_description=spell_brief_description,
+        spell_slots_consumed=spell_slots_consumed,
+        spell_slot_level_used=spell_slot_level_used,
         detail=payload.detail,
     )
 

@@ -17,21 +17,56 @@
         <h2>Participants</h2>
         <div id="participants"></div>
 
-        <h3>Add Party Character</h3>
+        <h3 id="party-participant-form-heading">Add Party Character</h3>
         <form id="participant-form">
+            <input type="hidden" id="participant-edit-id" />
+
             <select id="participant-character-id" required>
                 <option value="">Select character</option>
             </select>
-            <input id="participant-current-hp" type="number" placeholder="Current HP" />
-            <input id="participant-slots-1" type="number" placeholder="Spell Slots L1" />
-            <input id="participant-slots-2" type="number" placeholder="Spell Slots L2" />
-            <input id="participant-slots-3" type="number" placeholder="Spell Slots L3" />
-            <textarea id="participant-notes" placeholder="Notes"></textarea>
-            <button type="submit">Add Party Character</button>
+
+            <div id="party-character-extra-fields" style="display:none;">
+                <input id="participant-current-hp" type="number" placeholder="Current HP" />
+
+                <div id="participant-slot-row-1" style="display:none;">
+                    <input id="participant-slots-1" type="number" placeholder="Spell Slots L1" />
+                </div>
+                <div id="participant-slot-row-2" style="display:none;">
+                    <input id="participant-slots-2" type="number" placeholder="Spell Slots L2" />
+                </div>
+                <div id="participant-slot-row-3" style="display:none;">
+                    <input id="participant-slots-3" type="number" placeholder="Spell Slots L3" />
+                </div>
+                <div id="participant-slot-row-4" style="display:none;">
+                    <input id="participant-slots-4" type="number" placeholder="Spell Slots L4" />
+                </div>
+                <div id="participant-slot-row-5" style="display:none;">
+                    <input id="participant-slots-5" type="number" placeholder="Spell Slots L5" />
+                </div>
+                <div id="participant-slot-row-6" style="display:none;">
+                    <input id="participant-slots-6" type="number" placeholder="Spell Slots L6" />
+                </div>
+                <div id="participant-slot-row-7" style="display:none;">
+                    <input id="participant-slots-7" type="number" placeholder="Spell Slots L7" />
+                </div>
+                <div id="participant-slot-row-8" style="display:none;">
+                    <input id="participant-slots-8" type="number" placeholder="Spell Slots L8" />
+                </div>
+                <div id="participant-slot-row-9" style="display:none;">
+                    <input id="participant-slots-9" type="number" placeholder="Spell Slots L9" />
+                </div>
+
+                <textarea id="participant-notes" placeholder="Notes"></textarea>
+
+                <button type="submit" id="participant-submit-btn">Add Party Character</button>
+                <button type="button" id="participant-cancel-btn" style="display:none;">Cancel Edit</button>
+            </div>
         </form>
         
-        <h3>Add Other Participant</h3>
+        <h3 id="custom-participant-form-heading">Add Other Participant</h3>
         <form id="custom-participant-form">
+            <input type="hidden" id="custom-participant-edit-id" />
+
             <input id="custom-participant-name" placeholder="Name" required />
             <input id="custom-participant-class-name" placeholder="Class / type" />
             <input id="custom-participant-level" type="number" placeholder="Level (optional)" />
@@ -40,8 +75,16 @@
             <input id="custom-participant-slots-1" type="number" placeholder="Spell Slots L1" />
             <input id="custom-participant-slots-2" type="number" placeholder="Spell Slots L2" />
             <input id="custom-participant-slots-3" type="number" placeholder="Spell Slots L3" />
+            <input id="custom-participant-slots-4" type="number" placeholder="Spell Slots L4" />
+            <input id="custom-participant-slots-5" type="number" placeholder="Spell Slots L5" />
+            <input id="custom-participant-slots-6" type="number" placeholder="Spell Slots L6" />
+            <input id="custom-participant-slots-7" type="number" placeholder="Spell Slots L7" />
+            <input id="custom-participant-slots-8" type="number" placeholder="Spell Slots L8" />
+            <input id="custom-participant-slots-9" type="number" placeholder="Spell Slots L9" />
             <textarea id="custom-participant-notes" placeholder="Notes"></textarea>
-            <button type="submit">Add Other Participant</button>
+
+            <button type="submit" id="custom-participant-submit-btn">Add Other Participant</button>
+            <button type="button" id="custom-participant-cancel-btn" style="display:none;">Cancel Edit</button>
         </form>
     </section>
 
@@ -131,22 +174,6 @@
 
             <div id="spell-description" class="muted"></div>
 
-            <div id="spell-fields" style="display: none;">
-                <input id="event-spell-slots-consumed" type="number" min="0" placeholder="Spell slots used (optional)" />
-                <select id="event-spell-slot-level-used">
-                    <option value="">Slot level used</option>
-                    <option value="1">Level 1</option>
-                    <option value="2">Level 2</option>
-                    <option value="3">Level 3</option>
-                    <option value="4">Level 4</option>
-                    <option value="5">Level 5</option>
-                    <option value="6">Level 6</option>
-                    <option value="7">Level 7</option>
-                    <option value="8">Level 8</option>
-                    <option value="9">Level 9</option>
-                </select>
-            </div>
-
             <textarea id="event-detail" placeholder="Detail"></textarea>
             <button type="submit" id="event-submit-btn">Create Event</button>
             <button type="button" id="event-cancel-btn" style="display:none;">Cancel Edit</button>
@@ -160,6 +187,9 @@ let participantsCache = [];
 let eventsCache = [];
 let editingEventId = null;
 
+let editingParticipantId = null;
+let editingParticipantType = null;
+
 let npcSpellSearchResultsCache = [];
 let npcSpellSearchDebounceHandle = null;
 
@@ -168,6 +198,7 @@ const encounterId = Number(
 );
 
 let campaignId = null;
+let characterOptionsCache = [];
 
 async function api(path, options = {}) {
     const response = await fetch(path, {
@@ -197,20 +228,90 @@ function escapeHtml(value) {
         .replaceAll("'", "&#039;");
 }
 
-function participantHasAnySpellSlots(participant) {
-    return (
-        (participant.spell_slots_1 ?? 0) > 0 ||
-        (participant.spell_slots_2 ?? 0) > 0 ||
-        (participant.spell_slots_3 ?? 0) > 0
+function hidePartyCharacterFields() {
+    document.getElementById("party-character-extra-fields").style.display = "none";
+    document.getElementById("participant-current-hp").value = "";
+    document.getElementById("participant-notes").value = "";
+
+    for (let level = 1; level <= 9; level++) {
+        const row = document.getElementById(`participant-slot-row-${level}`);
+        const input = document.getElementById(`participant-slots-${level}`);
+
+        if (row) row.style.display = "none";
+        if (input) input.value = "";
+    }
+}
+
+function showPartyCharacterFieldsFor(character) {
+    const extraFields = document.getElementById("party-character-extra-fields");
+    extraFields.style.display = "block";
+
+    document.getElementById("participant-current-hp").value =
+        character.current_hp ?? character.max_hp ?? "";
+
+    for (let level = 1; level <= 9; level++) {
+        const row = document.getElementById(`participant-slot-row-${level}`);
+        const input = document.getElementById(`participant-slots-${level}`);
+        const fieldName = `spell_slots_${level}`;
+        const slotValue = character[fieldName];
+
+        if (!row || !input) continue;
+
+        const hasAccess =
+            slotValue !== null &&
+            slotValue !== undefined &&
+            Number(slotValue) > 0;
+
+        if (hasAccess) {
+            row.style.display = "block";
+            input.value = slotValue;
+        } else {
+            row.style.display = "none";
+            input.value = "";
+        }
+    }
+}
+
+async function handlePartyCharacterSelection() {
+    const selectedCharacterId = Number(
+        document.getElementById("participant-character-id").value
     );
+
+    if (!selectedCharacterId) {
+        hidePartyCharacterFields();
+        return;
+    }
+
+    let character = characterOptionsCache.find(c => c.id === selectedCharacterId);
+
+    if (!character) {
+        character = await api(`/api/v1/characters/${selectedCharacterId}`);
+    }
+
+    showPartyCharacterFieldsFor(character);
+}
+
+function getParticipantSlotValue(participant, level) {
+    return participant[`spell_slots_${level}`] ?? 0;
+}
+
+function getAvailableSpellLevels(participant) {
+    const levels = [];
+    for (let level = 1; level <= 9; level += 1) {
+        if (getParticipantSlotValue(participant, level) > 0) {
+            levels.push(level);
+        }
+    }
+    return levels;
+}
+
+function participantHasAnySpellSlots(participant) {
+    return getAvailableSpellLevels(participant).length > 0;
 }
 
 function participantCanCastSpellLevel(participant, spellLevel) {
     if (spellLevel === 0) return true;
-    if (spellLevel === 1) return (participant.spell_slots_1 ?? 0) > 0;
-    if (spellLevel === 2) return (participant.spell_slots_2 ?? 0) > 0;
-    if (spellLevel === 3) return (participant.spell_slots_3 ?? 0) > 0;
-    return false;
+    return getParticipantSlotValue(participant, spellLevel) > 0;
 }
 
 function getSelectedSourceParticipant() {
@@ -300,21 +401,12 @@ function populateEventParticipantSelectors() {
 function toggleEventFields() {
     const kind = document.getElementById("event-kind").value;
     const amountFields = document.getElementById("amount-fields");
-    const spellFields = document.getElementById("spell-fields");
 
     if (kind === "DAMAGE" || kind === "HEAL") {
         amountFields.style.display = "block";
     } else {
         amountFields.style.display = "none";
         document.getElementById("event-amount").value = "";
-    }
-
-    if (kind === "DAMAGE" || kind === "HEAL" || kind === "SPELL") {
-        spellFields.style.display = "block";
-    } else {
-        spellFields.style.display = "none";
-        document.getElementById("event-spell-slots-consumed").value = "";
-        document.getElementById("event-spell-slot-level-used").value = "";
     }
 }
 
@@ -327,18 +419,49 @@ function resetEventForm() {
     document.getElementById("event-form-heading").textContent = "Create Event";
     document.getElementById("event-submit-btn").textContent = "Create Event";
     document.getElementById("event-cancel-btn").style.display = "none";
-    document.getElementById("event-spell-slot-level-used").value = "";
 
     clearSpellSelection();
     setSpellInputModeForParticipant(null);
     toggleEventFields();
 }
 
+function resetParticipantForms() {
+    editingParticipantId = null;
+    editingParticipantType = null;
+
+    document.getElementById("participant-form").reset();
+    document.getElementById("custom-participant-form").reset();
+
+    document.getElementById("participant-edit-id").value = "";
+    document.getElementById("custom-participant-edit-id").value = "";
+
+    hidePartyCharacterFields();
+
+    document.getElementById("party-participant-form-heading").textContent = "Add Party Character";
+    document.getElementById("participant-submit-btn").textContent = "Add Party Character";
+    document.getElementById("participant-cancel-btn").style.display = "none";
+
+    document.getElementById("custom-participant-form-heading").textContent = "Add Other Participant";
+    document.getElementById("custom-participant-submit-btn").textContent = "Add Other Participant";
+    document.getElementById("custom-participant-cancel-btn").style.display = "none";
+}
+
+function renderRemainingSlots(participant) {
+    const parts = [];
+
+    for (let level = 1; level <= 9; level += 1) {
+        const value = getParticipantSlotValue(participant, level);
+        if (value > 0) {
+            parts.push(`Spell Slots L${level}: ${escapeHtml(value)}`);
+        }
+    }
+
+    return parts.length ? parts.join("<br>") + "<br>" : "";
+}
+
 async function loadPartySpellsForParticipant(participant, selectedSpellIndex = null) {
     const spellSelect = document.getElementById("event-spell");
     const spellDescription = document.getElementById("spell-description");
-    const slotsConsumedInput = document.getElementById("event-spell-slots-consumed");
-    const slotLevelSelect = document.getElementById("event-spell-slot-level-used");
 
     spellSelect.innerHTML = `<option value="">No spell</option>`;
     spellDescription.textContent = "";
@@ -352,8 +475,6 @@ async function loadPartySpellsForParticipant(participant, selectedSpellIndex = n
 
     if (!spells.length) {
         spellDescription.textContent = "No castable learnt spells available for this participant.";
-        slotsConsumedInput.value = "";
-        slotLevelSelect.value = "";
         return;
     }
 
@@ -446,8 +567,6 @@ async function searchNpcSpellsAutocomplete(query) {
 
 async function loadSpellsForParticipant(participantId, selectedSpellIndex = null, selectedSpellName = null) {
     const spellDescription = document.getElementById("spell-description");
-    const slotsConsumedInput = document.getElementById("event-spell-slots-consumed");
-    const slotLevelSelect = document.getElementById("event-spell-slot-level-used");
 
     clearSpellSelection();
 
@@ -471,8 +590,6 @@ async function loadSpellsForParticipant(participantId, selectedSpellIndex = null
 
     if (!participantHasAnySpellSlots(participant)) {
         spellDescription.textContent = "This participant has no spell slots available.";
-        slotsConsumedInput.value = "";
-        slotLevelSelect.value = "";
         return;
     }
 
@@ -485,14 +602,10 @@ async function loadSpellsForParticipant(participantId, selectedSpellIndex = null
 
 async function updateSpellDescription(spellIndex) {
     const spellDescription = document.getElementById("spell-description");
-    const slotLevelSelect = document.getElementById("event-spell-slot-level-used");
-    const slotsConsumedInput = document.getElementById("event-spell-slots-consumed");
     const participant = getSelectedSourceParticipant();
 
     if (!spellIndex) {
         spellDescription.textContent = "";
-        slotLevelSelect.value = "";
-        slotsConsumedInput.value = "";
         return;
     }
 
@@ -507,14 +620,6 @@ async function updateSpellDescription(spellIndex) {
 
             spellDescription.textContent =
                 `${name}${level !== "" ? ` | Level ${level}` : ""}${description ? ` — ${description}` : ""}`;
-
-            if (level !== "" && String(level) !== "0") {
-                slotLevelSelect.value = String(level);
-                slotsConsumedInput.value = "1";
-            } else {
-                slotLevelSelect.value = "";
-                slotsConsumedInput.value = "";
-            }
             return;
         }
     }
@@ -533,13 +638,84 @@ async function updateSpellDescription(spellIndex) {
     const schoolName = spell.school?.name || spell.school || "";
     spellDescription.textContent =
         `${spell.name} | Level ${spell.level}${schoolName ? ` | ${schoolName}` : ""}${description ? ` — ${description}` : ""}`;
+}
 
-    if (spell.level !== undefined && spell.level !== null && spell.level !== 0) {
-        slotLevelSelect.value = String(spell.level);
-        slotsConsumedInput.value = "1";
+async function startEditParticipant(participantId) {
+    const p = participantsCache.find(x => x.id === participantId);
+    if (!p) return;
+
+    editingParticipantId = p.id;
+    editingParticipantType = p.character_id ? "PARTY" : "OTHER";
+
+    if (p.character_id) {
+        document.getElementById("participant-edit-id").value = p.id;
+        document.getElementById("participant-character-id").value = String(p.character_id);
+
+        await handlePartyCharacterSelection();
+
+        document.getElementById("participant-current-hp").value = p.current_hp ?? "";
+        document.getElementById("participant-notes").value = p.notes || "";
+
+        for (let level = 1; level <= 9; level++) {
+            const input = document.getElementById(`participant-slots-${level}`);
+            if (input) {
+                input.value = p[`spell_slots_${level}`] ?? "";
+            }
+        }
+
+        document.getElementById("party-participant-form-heading").textContent = "Edit Party Character";
+        document.getElementById("participant-submit-btn").textContent = "Save Party Character";
+        document.getElementById("participant-cancel-btn").style.display = "inline-block";
     } else {
-        slotLevelSelect.value = "";
-        slotsConsumedInput.value = "";
+        document.getElementById("custom-participant-edit-id").value = p.id;
+        document.getElementById("custom-participant-name").value = p.name || "";
+        document.getElementById("custom-participant-class-name").value = p.class_name || "";
+        document.getElementById("custom-participant-level").value = p.level ?? "";
+        document.getElementById("custom-participant-max-hp").value = p.max_hp ?? "";
+        document.getElementById("custom-participant-current-hp").value = p.current_hp ?? "";
+        document.getElementById("custom-participant-notes").value = p.notes || "";
+
+        for (let level = 1; level <= 9; level++) {
+            const input = document.getElementById(`custom-participant-slots-${level}`);
+            if (input) {
+                input.value = p[`spell_slots_${level}`] ?? "";
+            }
+        }
+
+        document.getElementById("custom-participant-form-heading").textContent = "Edit Other Participant";
+        document.getElementById("custom-participant-submit-btn").textContent = "Save Other Participant";
+        document.getElementById("custom-participant-cancel-btn").style.display = "inline-block";
+    }
+
+    window.scrollTo({
+        top: document.getElementById("participants").offsetTop - 40,
+        behavior: "smooth"
+    });
+}
+
+async function deleteParticipant(participantId) {
+    const p = participantsCache.find(x => x.id === participantId);
+    const label = p ? p.name : `participant ${participantId}`;
+
+    if (!confirm(`Delete ${label}?`)) {
+        return;
+    }
+
+    try {
+        await api(`/api/v1/participants/${participantId}`, {
+            method: "DELETE"
+        });
+
+        if (editingParticipantId === participantId) {
+            resetParticipantForms();
+        }
+
+        await loadParticipants();
+        await loadEvents();
+        await loadEncounterReview();
+        await loadAiReview();
+    } catch (err) {
+        alert(err.message);
     }
 }
 
@@ -564,9 +740,7 @@ async function startEditEvent(eventId) {
             : "";
 
     document.getElementById("event-amount").value = e.amount ?? "";
-    document.getElementById("event-spell-slots-consumed").value = e.spell_slots_consumed ?? "";
     document.getElementById("event-detail").value = e.detail || "";
-    document.getElementById("event-spell-slot-level-used").value = e.spell_slot_level_used ?? "";
 
     await loadSpellsForParticipant(
         e.source_participant_id !== null && e.source_participant_id !== undefined
@@ -682,9 +856,11 @@ async function loadCharacterOptions() {
     }
 
     const characters = await api(`/api/v1/campaigns/${campaignId}/characters`);
+    characterOptionsCache = characters;
 
     if (!characters.length) {
         select.innerHTML = `<option value="">No characters available</option>`;
+        hidePartyCharacterFields();
         return;
     }
 
@@ -697,6 +873,8 @@ async function loadCharacterOptions() {
             `${character.level ? ` | L${character.level}` : ""}`;
         select.appendChild(option);
     }
+
+    hidePartyCharacterFields();
 }
 
 async function loadParticipants() {
@@ -741,6 +919,8 @@ async function loadParticipants() {
     }
 
     for (const p of participants) {
+        const slotHtml = renderRemainingSlots(p);
+
         const div = document.createElement("div");
         div.className = "item";
 
@@ -750,10 +930,10 @@ async function loadParticipants() {
             ${p.level !== null && p.level !== undefined ? `Level: ${escapeHtml(p.level)}<br>` : ""}
             ${p.max_hp !== null && p.max_hp !== undefined ? `Max HP: ${escapeHtml(p.max_hp)}<br>` : ""}
             ${p.current_hp !== null && p.current_hp !== undefined ? `Current HP: ${escapeHtml(p.current_hp)}<br>` : ""}
-            ${p.spell_slots_1 !== null && p.spell_slots_1 !== undefined ? `Spell Slots L1: ${escapeHtml(p.spell_slots_1)}<br>` : ""}
-            ${p.spell_slots_2 !== null && p.spell_slots_2 !== undefined ? `Spell Slots L2: ${escapeHtml(p.spell_slots_2)}<br>` : ""}
-            ${p.spell_slots_3 !== null && p.spell_slots_3 !== undefined ? `Spell Slots L3: ${escapeHtml(p.spell_slots_3)}<br>` : ""}
+            ${slotHtml}
             ${p.notes ? `${escapeHtml(p.notes)}<br>` : ""}
+            <button type="button" onclick="startEditParticipant(${p.id})">Edit</button>
+            <button type="button" onclick="deleteParticipant(${p.id})">Delete</button>
         `;
 
         container.appendChild(div);
@@ -833,6 +1013,8 @@ async function loadEncounterReview() {
         review.party_max_hp_total ?? 0;
 }
 
+document.getElementById("participant-character-id").addEventListener("change", handlePartyCharacterSelection);
+
 document.getElementById("event-kind").addEventListener("change", toggleEventFields);
 
 document.getElementById("event-source-select").addEventListener("change", async (e) => {
@@ -883,29 +1065,56 @@ document.getElementById("participant-form").addEventListener("submit", async (e)
         return;
     }
 
-    try {
-        await api(`/api/v1/encounters/${encounterId}/participants`, {
-            method: "POST",
-            body: JSON.stringify({
-                character_id: Number(selectedCharacterId),
-                participant_type: "PARTY",
-                current_hp: document.getElementById("participant-current-hp").value
-                    ? Number(document.getElementById("participant-current-hp").value)
-                    : null,
-                spell_slots_1: document.getElementById("participant-slots-1").value
-                    ? Number(document.getElementById("participant-slots-1").value)
-                    : null,
-                spell_slots_2: document.getElementById("participant-slots-2").value
-                    ? Number(document.getElementById("participant-slots-2").value)
-                    : null,
-                spell_slots_3: document.getElementById("participant-slots-3").value
-                    ? Number(document.getElementById("participant-slots-3").value)
-                    : null,
-                notes: document.getElementById("participant-notes").value || null
-            })
-        });
+    const payload = {
+        character_id: Number(selectedCharacterId),
+        participant_type: "PARTY",
+        current_hp: document.getElementById("participant-current-hp").value
+            ? Number(document.getElementById("participant-current-hp").value)
+            : null,
+        notes: document.getElementById("participant-notes").value || null,
+        spell_slots_1: document.getElementById("participant-slots-1").value
+            ? Number(document.getElementById("participant-slots-1").value)
+            : null,
+        spell_slots_2: document.getElementById("participant-slots-2").value
+            ? Number(document.getElementById("participant-slots-2").value)
+            : null,
+        spell_slots_3: document.getElementById("participant-slots-3").value
+            ? Number(document.getElementById("participant-slots-3").value)
+            : null,
+        spell_slots_4: document.getElementById("participant-slots-4").value
+            ? Number(document.getElementById("participant-slots-4").value)
+            : null,
+        spell_slots_5: document.getElementById("participant-slots-5").value
+            ? Number(document.getElementById("participant-slots-5").value)
+            : null,
+        spell_slots_6: document.getElementById("participant-slots-6").value
+            ? Number(document.getElementById("participant-slots-6").value)
+            : null,
+        spell_slots_7: document.getElementById("participant-slots-7").value
+            ? Number(document.getElementById("participant-slots-7").value)
+            : null,
+        spell_slots_8: document.getElementById("participant-slots-8").value
+            ? Number(document.getElementById("participant-slots-8").value)
+            : null,
+        spell_slots_9: document.getElementById("participant-slots-9").value
+            ? Number(document.getElementById("participant-slots-9").value)
+            : null
+    };
 
-        e.target.reset();
+    try {
+        if (editingParticipantId && editingParticipantType === "PARTY") {
+            await api(`/api/v1/participants/${editingParticipantId}`, {
+                method: "PUT",
+                body: JSON.stringify(payload)
+            });
+        } else {
+            await api(`/api/v1/encounters/${encounterId}/participants`, {
+                method: "POST",
+                body: JSON.stringify(payload)
+            });
+        }
+
+        resetParticipantForms();
         await loadParticipants();
         await loadEncounterReview();
         await loadAiReview();
@@ -917,37 +1126,64 @@ document.getElementById("participant-form").addEventListener("submit", async (e)
 document.getElementById("custom-participant-form").addEventListener("submit", async (e) => {
     e.preventDefault();
 
-    try {
-        await api(`/api/v1/encounters/${encounterId}/participants`, {
-            method: "POST",
-            body: JSON.stringify({
-                character_id: null,
-                name: document.getElementById("custom-participant-name").value,
-                participant_type: "OTHER",
-                class_name: document.getElementById("custom-participant-class-name").value || null,
-                level: document.getElementById("custom-participant-level").value
-                    ? Number(document.getElementById("custom-participant-level").value)
-                    : null,
-                max_hp: document.getElementById("custom-participant-max-hp").value
-                    ? Number(document.getElementById("custom-participant-max-hp").value)
-                    : null,
-                current_hp: document.getElementById("custom-participant-current-hp").value
-                    ? Number(document.getElementById("custom-participant-current-hp").value)
-                    : null,
-                spell_slots_1: document.getElementById("custom-participant-slots-1").value
-                    ? Number(document.getElementById("custom-participant-slots-1").value)
-                    : null,
-                spell_slots_2: document.getElementById("custom-participant-slots-2").value
-                    ? Number(document.getElementById("custom-participant-slots-2").value)
-                    : null,
-                spell_slots_3: document.getElementById("custom-participant-slots-3").value
-                    ? Number(document.getElementById("custom-participant-slots-3").value)
-                    : null,
-                notes: document.getElementById("custom-participant-notes").value || null
-            })
-        });
+    const payload = {
+        character_id: null,
+        name: document.getElementById("custom-participant-name").value,
+        participant_type: "OTHER",
+        class_name: document.getElementById("custom-participant-class-name").value || null,
+        level: document.getElementById("custom-participant-level").value
+            ? Number(document.getElementById("custom-participant-level").value)
+            : null,
+        max_hp: document.getElementById("custom-participant-max-hp").value
+            ? Number(document.getElementById("custom-participant-max-hp").value)
+            : null,
+        current_hp: document.getElementById("custom-participant-current-hp").value
+            ? Number(document.getElementById("custom-participant-current-hp").value)
+            : null,
+        spell_slots_1: document.getElementById("custom-participant-slots-1").value
+            ? Number(document.getElementById("custom-participant-slots-1").value)
+            : null,
+        spell_slots_2: document.getElementById("custom-participant-slots-2").value
+            ? Number(document.getElementById("custom-participant-slots-2").value)
+            : null,
+        spell_slots_3: document.getElementById("custom-participant-slots-3").value
+            ? Number(document.getElementById("custom-participant-slots-3").value)
+            : null,
+        spell_slots_4: document.getElementById("custom-participant-slots-4").value
+            ? Number(document.getElementById("custom-participant-slots-4").value)
+            : null,
+        spell_slots_5: document.getElementById("custom-participant-slots-5").value
+            ? Number(document.getElementById("custom-participant-slots-5").value)
+            : null,
+        spell_slots_6: document.getElementById("custom-participant-slots-6").value
+            ? Number(document.getElementById("custom-participant-slots-6").value)
+            : null,
+        spell_slots_7: document.getElementById("custom-participant-slots-7").value
+            ? Number(document.getElementById("custom-participant-slots-7").value)
+            : null,
+        spell_slots_8: document.getElementById("custom-participant-slots-8").value
+            ? Number(document.getElementById("custom-participant-slots-8").value)
+            : null,
+        spell_slots_9: document.getElementById("custom-participant-slots-9").value
+            ? Number(document.getElementById("custom-participant-slots-9").value)
+            : null,
+        notes: document.getElementById("custom-participant-notes").value || null
+    };
 
-        e.target.reset();
+    try {
+        if (editingParticipantId && editingParticipantType === "OTHER") {
+            await api(`/api/v1/participants/${editingParticipantId}`, {
+                method: "PUT",
+                body: JSON.stringify(payload)
+            });
+        } else {
+            await api(`/api/v1/encounters/${encounterId}/participants`, {
+                method: "POST",
+                body: JSON.stringify(payload)
+            });
+        }
+
+        resetParticipantForms();
         await loadParticipants();
         await loadEncounterReview();
         await loadAiReview();
@@ -973,14 +1209,6 @@ document.getElementById("event-form").addEventListener("submit", async (e) => {
             ? Number(document.getElementById("event-amount").value)
             : null,
         spell_index: getSelectedSpellIndex(),
-        spell_slots_consumed: (kind === "DAMAGE" || kind === "HEAL" || kind === "SPELL") &&
-            document.getElementById("event-spell-slots-consumed").value
-            ? Number(document.getElementById("event-spell-slots-consumed").value)
-            : null,
-        spell_slot_level_used: (kind === "DAMAGE" || kind === "HEAL" || kind === "SPELL") &&
-            document.getElementById("event-spell-slot-level-used").value
-            ? Number(document.getElementById("event-spell-slot-level-used").value)
-            : null,
         detail: document.getElementById("event-detail").value || null
     };
 
@@ -998,7 +1226,6 @@ document.getElementById("event-form").addEventListener("submit", async (e) => {
         }
 
         resetEventForm();
-
         await loadParticipants();
         await loadEvents();
         await loadEncounterReview();
@@ -1008,6 +1235,8 @@ document.getElementById("event-form").addEventListener("submit", async (e) => {
     }
 });
 
+document.getElementById("participant-cancel-btn").addEventListener("click", resetParticipantForms);
+document.getElementById("custom-participant-cancel-btn").addEventListener("click", resetParticipantForms);
 document.getElementById("event-cancel-btn").addEventListener("click", resetEventForm);
 
 async function init() {
@@ -1018,9 +1247,11 @@ async function init() {
         await loadEvents();
         await loadEncounterReview();
         await loadAiReview();
+
         toggleEventFields();
         clearSpellSelection();
         setSpellInputModeForParticipant(null);
+        resetParticipantForms();
     } catch (err) {
         console.error("Encounter page init failed:", err);
         alert(err.message);

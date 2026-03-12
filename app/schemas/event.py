@@ -6,10 +6,8 @@ class EventCreate(BaseModel):
     source_participant_id: int | None = None
     target_participant_id: int | None = None
     amount: int | None = Field(default=None, ge=0)
-    spell_slots_consumed: int | None = Field(default=None, ge=0)
-    spell_slot_level_used: int | None = Field(default=None, ge=1, le=3)
+    spell_index: str | None = Field(default=None, max_length=100)
     detail: str | None = Field(default=None, max_length=4000)
-    spell_index: str | None = None
 
 
 class EventUpdate(BaseModel):
@@ -17,10 +15,8 @@ class EventUpdate(BaseModel):
     source_participant_id: int | None = None
     target_participant_id: int | None = None
     amount: int | None = Field(default=None, ge=0)
-    spell_slots_consumed: int | None = Field(default=None, ge=0)
-    spell_slot_level_used: int | None = Field(default=None, ge=1, le=3)
+    spell_index: str | None = Field(default=None, max_length=100)
     detail: str | None = Field(default=None, max_length=4000)
-    spell_index: str | None = None
 
 
 class EventOut(BaseModel):
@@ -30,10 +26,11 @@ class EventOut(BaseModel):
     source_participant_id: int | None
     target_participant_id: int | None
     amount: int | None
+    spell_index: str | None
+    spell_name_snapshot: str | None
+    spell_brief_description: str | None
     spell_slots_consumed: int | None
     spell_slot_level_used: int | None
     detail: str | None
-    spell_index: str | None
-    spell_name_snapshot: str | None
 
     model_config = {"from_attributes": True}

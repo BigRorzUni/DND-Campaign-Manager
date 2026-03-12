@@ -23,6 +23,16 @@ class Character(Base):
     armor_class: Mapped[int | None] = mapped_column(Integer)
     notes: Mapped[str | None] = mapped_column(String(2000))
 
+    spell_slots_1: Mapped[int | None] = mapped_column(nullable=True)
+    spell_slots_2: Mapped[int | None] = mapped_column(nullable=True)
+    spell_slots_3: Mapped[int | None] = mapped_column(nullable=True)
+    spell_slots_4: Mapped[int | None] = mapped_column(nullable=True)
+    spell_slots_5: Mapped[int | None] = mapped_column(nullable=True)
+    spell_slots_6: Mapped[int | None] = mapped_column(nullable=True)
+    spell_slots_7: Mapped[int | None] = mapped_column(nullable=True)
+    spell_slots_8: Mapped[int | None] = mapped_column(nullable=True)
+    spell_slots_9: Mapped[int | None] = mapped_column(nullable=True)
+
     campaign: Mapped["Campaign"] = relationship(back_populates="characters")
 
     resource_state: Mapped["CharacterResourceState | None"] = relationship(

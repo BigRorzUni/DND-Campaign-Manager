@@ -42,6 +42,18 @@
             <input id="character-max-hp" type="number" placeholder="Max HP" min="0" />
             <input id="character-current-hp" type="number" placeholder="Current HP" min="0" />
             <input id="character-ac" type="number" placeholder="Armour Class" min="0" />
+
+            <h4>Spell Slots</h4>
+            <input id="character-slots-1" type="number" placeholder="Spell Slots L1" min="0" />
+            <input id="character-slots-2" type="number" placeholder="Spell Slots L2" min="0" />
+            <input id="character-slots-3" type="number" placeholder="Spell Slots L3" min="0" />
+            <input id="character-slots-4" type="number" placeholder="Spell Slots L4" min="0" />
+            <input id="character-slots-5" type="number" placeholder="Spell Slots L5" min="0" />
+            <input id="character-slots-6" type="number" placeholder="Spell Slots L6" min="0" />
+            <input id="character-slots-7" type="number" placeholder="Spell Slots L7" min="0" />
+            <input id="character-slots-8" type="number" placeholder="Spell Slots L8" min="0" />
+            <input id="character-slots-9" type="number" placeholder="Spell Slots L9" min="0" />
+
             <textarea id="character-notes" placeholder="Character notes"></textarea>
 
             <button type="submit" id="character-submit-btn">Create Character</button>
@@ -146,6 +158,17 @@ function escapeHtml(value) {
         .replaceAll(">", "&gt;")
         .replaceAll('"', "&quot;")
         .replaceAll("'", "&#039;");
+}
+
+function renderCharacterSpellSlots(character) {
+    const rows = [];
+    for (let level = 1; level <= 9; level++) {
+        const value = character[`spell_slots_${level}`];
+        if (value !== null && value !== undefined && Number(value) > 0) {
+            rows.push(`L${level}: ${escapeHtml(value)}`);
+        }
+    }
+    return rows.length ? rows.join(" | ") : "No spell slots";
 }
 
 async function loadCampaign() {
@@ -293,6 +316,7 @@ async function loadCharacters() {
                 HP: ${escapeHtml(c.current_hp ?? "?")}/${escapeHtml(c.max_hp ?? "?")}
                 ${c.armor_class !== null && c.armor_class !== undefined ? ` | AC ${escapeHtml(c.armor_class)}` : ""}
             </span><br>
+            <span class="muted">${renderCharacterSpellSlots(c)}</span><br>
             <span class="muted">${escapeHtml(c.notes || "")}</span><br>
             <button type="button" onclick="startEditCharacter(${c.id})">Edit</button>
         `;
@@ -318,6 +342,17 @@ function startEditCharacter(characterId) {
     document.getElementById("character-max-hp").value = c.max_hp ?? "";
     document.getElementById("character-current-hp").value = c.current_hp ?? "";
     document.getElementById("character-ac").value = c.armor_class ?? "";
+
+    document.getElementById("character-slots-1").value = c.spell_slots_1 ?? "";
+    document.getElementById("character-slots-2").value = c.spell_slots_2 ?? "";
+    document.getElementById("character-slots-3").value = c.spell_slots_3 ?? "";
+    document.getElementById("character-slots-4").value = c.spell_slots_4 ?? "";
+    document.getElementById("character-slots-5").value = c.spell_slots_5 ?? "";
+    document.getElementById("character-slots-6").value = c.spell_slots_6 ?? "";
+    document.getElementById("character-slots-7").value = c.spell_slots_7 ?? "";
+    document.getElementById("character-slots-8").value = c.spell_slots_8 ?? "";
+    document.getElementById("character-slots-9").value = c.spell_slots_9 ?? "";
+
     document.getElementById("character-notes").value = c.notes || "";
 
     document.getElementById("character-form-heading").textContent = "Edit Character";
@@ -616,6 +651,35 @@ document.getElementById("character-form").addEventListener("submit", async (e) =
         armor_class: document.getElementById("character-ac").value
             ? Number(document.getElementById("character-ac").value)
             : null,
+
+        spell_slots_1: document.getElementById("character-slots-1").value
+            ? Number(document.getElementById("character-slots-1").value)
+            : null,
+        spell_slots_2: document.getElementById("character-slots-2").value
+            ? Number(document.getElementById("character-slots-2").value)
+            : null,
+        spell_slots_3: document.getElementById("character-slots-3").value
+            ? Number(document.getElementById("character-slots-3").value)
+            : null,
+        spell_slots_4: document.getElementById("character-slots-4").value
+            ? Number(document.getElementById("character-slots-4").value)
+            : null,
+        spell_slots_5: document.getElementById("character-slots-5").value
+            ? Number(document.getElementById("character-slots-5").value)
+            : null,
+        spell_slots_6: document.getElementById("character-slots-6").value
+            ? Number(document.getElementById("character-slots-6").value)
+            : null,
+        spell_slots_7: document.getElementById("character-slots-7").value
+            ? Number(document.getElementById("character-slots-7").value)
+            : null,
+        spell_slots_8: document.getElementById("character-slots-8").value
+            ? Number(document.getElementById("character-slots-8").value)
+            : null,
+        spell_slots_9: document.getElementById("character-slots-9").value
+            ? Number(document.getElementById("character-slots-9").value)
+            : null,
+
         notes: document.getElementById("character-notes").value || null
     };
 
