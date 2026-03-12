@@ -10,6 +10,7 @@ from app.schemas.participant import EncounterParticipantCreate, EncounterPartici
 from app.services.ai_review_service import AiReviewService
 from app.services.spell_dataset import SpellDatasetService
 from app.repositories.character_spell_repo import CharacterSpellRepo
+from app.services.monster_dataset import MonsterDatasetService
 
 ai_review_service = AiReviewService()
 
@@ -50,6 +51,7 @@ def create_participant(
             db,
             encounter_id=encounter_id,
             character_id=character.id,
+            monster_index=None,
             name=character.name,
             participant_type=payload.participant_type,
             class_name=character.class_name,
@@ -66,15 +68,48 @@ def create_participant(
             spell_slots_8=payload.spell_slots_8 if payload.spell_slots_8 is not None else character.spell_slots_8,
             spell_slots_9=payload.spell_slots_9 if payload.spell_slots_9 is not None else character.spell_slots_9,
             notes=payload.notes,
+
         )
         ai_review_service.mark_encounter_review_stale(db, encounter_id)
         return participant
+
+    if payload.monster_index:
+        monster = MonsterDatasetService.get_monster(payload.monster_index)
+        if not monster:
+            raise HTTPException(status_code=404, detail="Monster not found")
+        
+        max_hp = monster.get("hit_points")
+        current_hp = payload.current_hp if payload.current_hp is not None else max_hp
+
+        return participant_repo.create(
+            db,
+            encounter_id=encounter_id,
+            character_id=None,
+            monster_index=monster["index"],
+            name=monster["name"],
+            participant_type=payload.participant_type,
+            class_name=MonsterDatasetService.get_monster_class_name(monster),
+            level=None,
+            max_hp=max_hp,
+            current_hp=payload.current_hp,
+            spell_slots_1=payload.spell_slots_1,
+            spell_slots_2=payload.spell_slots_2,
+            spell_slots_3=payload.spell_slots_3,
+            spell_slots_4=payload.spell_slots_4,
+            spell_slots_5=payload.spell_slots_5,
+            spell_slots_6=payload.spell_slots_6,
+            spell_slots_7=payload.spell_slots_7,
+            spell_slots_8=payload.spell_slots_8,
+            spell_slots_9=payload.spell_slots_9,
+            notes=payload.notes,
+        )
 
     if not payload.name:
         raise HTTPException(
             status_code=400,
             detail="Name is required for non-character participants",
         )
+
 
     return participant_repo.create(
         db,

@@ -5,6 +5,7 @@ class EncounterParticipantCreate(BaseModel):
     character_id: int | None = None
     name: str | None = Field(default=None, max_length=200)
     participant_type: str = Field(min_length=1, max_length=50)
+    monster_index: str | None = Field(default=None, max_length=100)
 
     class_name: str | None = Field(default=None, max_length=100)
     level: int | None = Field(default=None, ge=1)
@@ -52,6 +53,7 @@ class EncounterParticipantOut(BaseModel):
     id: int
     encounter_id: int
     character_id: int | None
+    monster_index: str | None
 
     name: str
     participant_type: str

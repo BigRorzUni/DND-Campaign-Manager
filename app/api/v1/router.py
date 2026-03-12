@@ -11,6 +11,7 @@ from app.api.v1.routes import (
     ai_review,
     character_spells,
     spells,
+    monsters,
 )
 
 router = APIRouter()
@@ -24,3 +25,4 @@ router.include_router(analytics.router, prefix="/analytics")
 router.include_router(ai_review.router)
 router.include_router(character_spells.router)
 router.include_router(spells.router)
+router.include_router(monsters.router)
