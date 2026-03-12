@@ -64,29 +64,48 @@
         </form>
         
         <h3 id="custom-participant-form-heading">Add Other Participant</h3>
-        <form id="custom-participant-form">
-            <input type="hidden" id="custom-participant-edit-id" />
+<form id="custom-participant-form">
+    <input type="hidden" id="custom-participant-edit-id" />
 
-            <input id="custom-participant-name" placeholder="Name" required />
-            <input id="custom-participant-class-name" placeholder="Class / type" />
-            <input id="custom-participant-level" type="number" placeholder="Level (optional)" />
-            <input id="custom-participant-max-hp" type="number" placeholder="Max HP" />
-            <input id="custom-participant-current-hp" type="number" placeholder="Current HP" />
-            <input id="custom-participant-slots-1" type="number" placeholder="Spell Slots L1" />
-            <input id="custom-participant-slots-2" type="number" placeholder="Spell Slots L2" />
-            <input id="custom-participant-slots-3" type="number" placeholder="Spell Slots L3" />
-            <input id="custom-participant-slots-4" type="number" placeholder="Spell Slots L4" />
-            <input id="custom-participant-slots-5" type="number" placeholder="Spell Slots L5" />
-            <input id="custom-participant-slots-6" type="number" placeholder="Spell Slots L6" />
-            <input id="custom-participant-slots-7" type="number" placeholder="Spell Slots L7" />
-            <input id="custom-participant-slots-8" type="number" placeholder="Spell Slots L8" />
-            <input id="custom-participant-slots-9" type="number" placeholder="Spell Slots L9" />
-            <textarea id="custom-participant-notes" placeholder="Notes"></textarea>
+    <label for="monster-search-input">Import from monster dataset</label>
+    <div style="position: relative;">
+        <input
+            id="monster-search-input"
+            type="text"
+            placeholder="Start typing a monster name..."
+            autocomplete="off"
+        />
+        <input type="hidden" id="selected-monster-index" />
+        <div
+            id="monster-autocomplete"
+            style="display:none; position:absolute; top:100%; left:0; right:0; z-index:10; background:white; color:black; border:1px solid #ccc; border-top:none; max-height:240px; overflow-y:auto;"
+        ></div>
+    </div>
 
-            <button type="submit" id="custom-participant-submit-btn">Add Other Participant</button>
-            <button type="button" id="custom-participant-cancel-btn" style="display:none;">Cancel Edit</button>
-        </form>
-    </section>
+    <div id="monster-preview" class="muted"></div>
+
+    <input id="custom-participant-name" placeholder="Name" required />
+    <input id="custom-participant-class-name" placeholder="Class / type" />
+    <input id="custom-participant-level" type="number" placeholder="Level (optional)" />
+    <input id="custom-participant-max-hp" type="number" placeholder="Max HP" />
+    <input id="custom-participant-current-hp" type="number" placeholder="Current HP" />
+    <input id="custom-participant-ac" type="number" placeholder="Armour Class" />
+
+    <input id="custom-participant-slots-1" type="number" placeholder="Spell Slots L1" />
+    <input id="custom-participant-slots-2" type="number" placeholder="Spell Slots L2" />
+    <input id="custom-participant-slots-3" type="number" placeholder="Spell Slots L3" />
+    <input id="custom-participant-slots-4" type="number" placeholder="Spell Slots L4" />
+    <input id="custom-participant-slots-5" type="number" placeholder="Spell Slots L5" />
+    <input id="custom-participant-slots-6" type="number" placeholder="Spell Slots L6" />
+    <input id="custom-participant-slots-7" type="number" placeholder="Spell Slots L7" />
+    <input id="custom-participant-slots-8" type="number" placeholder="Spell Slots L8" />
+    <input id="custom-participant-slots-9" type="number" placeholder="Spell Slots L9" />
+
+    <textarea id="custom-participant-notes" placeholder="Notes"></textarea>
+
+    <button type="submit" id="custom-participant-submit-btn">Add Other Participant</button>
+    <button type="button" id="custom-participant-cancel-btn" style="display:none;">Cancel Edit</button>
+</form>
 
     <section class="card">
         <h2>Encounter Review</h2>
@@ -193,6 +212,10 @@ let editingParticipantType = null;
 let npcSpellSearchResultsCache = [];
 let npcSpellSearchDebounceHandle = null;
 
+let monsterSearchResultsCache = [];
+let monsterSearchDebounceHandle = null;
+let selectedMonsterDetail = null;
+
 const encounterId = Number(
     document.getElementById("encounter-page").dataset.encounterId
 );
@@ -239,6 +262,107 @@ function hidePartyCharacterFields() {
 
         if (row) row.style.display = "none";
         if (input) input.value = "";
+    }
+}
+
+async function searchMonstersAutocomplete(query) {
+    const trimmed = query.trim();
+    const autocomplete = document.getElementById("monster-autocomplete");
+    const preview = document.getElementById("monster-preview");
+
+    document.getElementById("selected-monster-index").value = "";
+    selectedMonsterDetail = null;
+    preview.textContent = "";
+
+    if (!trimmed) {
+        monsterSearchResultsCache = [];
+        autocomplete.innerHTML = "";
+        autocomplete.style.display = "none";
+        return;
+    }
+
+    const results = await api(`/api/v1/monsters?q=${encodeURIComponent(trimmed)}`);
+    monsterSearchResultsCache = results;
+
+    if (!results.length) {
+        autocomplete.innerHTML = `<div style="padding:8px;" class="muted">No matching monsters</div>`;
+        autocomplete.style.display = "block";
+        return;
+    }
+
+    autocomplete.innerHTML = results.slice(0, 12).map(monster => `
+        <div
+            class="monster-autocomplete-item"
+            data-index="${escapeHtml(monster.index)}"
+            style="padding:8px; border-bottom:1px solid #eee; cursor:pointer;"
+        >
+            <strong>${escapeHtml(monster.name)}</strong><br>
+            <span class="muted">${escapeHtml(monster.index)}</span>
+        </div>
+    `).join("");
+
+    autocomplete.style.display = "block";
+
+    for (const item of autocomplete.querySelectorAll(".monster-autocomplete-item")) {
+        item.addEventListener("click", async () => {
+            const monsterIndex = item.dataset.index;
+            const monster = monsterSearchResultsCache.find(m => m.index === monsterIndex);
+
+            document.getElementById("selected-monster-index").value = monsterIndex;
+            document.getElementById("monster-search-input").value = monster ? monster.name : monsterIndex;
+            autocomplete.style.display = "none";
+
+            await loadSelectedMonsterPreview(monsterIndex);
+        });
+    }
+}
+
+async function loadSelectedMonsterPreview(monsterIndex) {
+    const preview = document.getElementById("monster-preview");
+
+    if (!monsterIndex) {
+        selectedMonsterDetail = null;
+        preview.textContent = "";
+        return;
+    }
+
+    const monster = await api(`/api/v1/monsters/${encodeURIComponent(monsterIndex)}`);
+    selectedMonsterDetail = monster;
+
+    const armorClass = Array.isArray(monster.armor_class)
+        ? monster.armor_class[0]?.value ?? ""
+        : monster.armor_class ?? "";
+
+    const typeText = typeof monster.type === "string"
+        ? monster.type
+        : monster.type?.name || "";
+
+    preview.textContent =
+        `${monster.name}` +
+        `${typeText ? ` | ${typeText}` : ""}` +
+        `${monster.hit_points !== undefined ? ` | HP ${monster.hit_points}` : ""}` +
+        `${armorClass !== "" ? ` | AC ${armorClass}` : ""}`;
+
+    autofillMonsterFields(monster);
+}
+
+function autofillMonsterFields(monster) {
+    const armorClass = Array.isArray(monster.armor_class)
+        ? monster.armor_class[0]?.value ?? null
+        : monster.armor_class ?? null;
+
+    const typeText = typeof monster.type === "string"
+        ? monster.type
+        : monster.type?.name || null;
+
+    document.getElementById("custom-participant-name").value = monster.name || "";
+    document.getElementById("custom-participant-class-name").value = typeText || "";
+    document.getElementById("custom-participant-max-hp").value = monster.hit_points ?? "";
+    document.getElementById("custom-participant-current-hp").value = monster.hit_points ?? "";
+    document.getElementById("custom-participant-ac").value = armorClass ?? "";
+
+    if (!document.getElementById("custom-participant-notes").value) {
+        document.getElementById("custom-participant-notes").value = "Imported from monster dataset";
     }
 }
 
@@ -434,6 +558,7 @@ function resetParticipantForms() {
 
     document.getElementById("participant-edit-id").value = "";
     document.getElementById("custom-participant-edit-id").value = "";
+    document.getElementById("selected-monster-index").value = "";
 
     hidePartyCharacterFields();
 
@@ -444,6 +569,11 @@ function resetParticipantForms() {
     document.getElementById("custom-participant-form-heading").textContent = "Add Other Participant";
     document.getElementById("custom-participant-submit-btn").textContent = "Add Other Participant";
     document.getElementById("custom-participant-cancel-btn").style.display = "none";
+
+    document.getElementById("monster-preview").textContent = "";
+    const monsterAutocomplete = document.getElementById("monster-autocomplete");
+    monsterAutocomplete.innerHTML = "";
+    monsterAutocomplete.style.display = "none";
 }
 
 function renderRemainingSlots(participant) {
@@ -674,6 +804,10 @@ async function startEditParticipant(participantId) {
         document.getElementById("custom-participant-max-hp").value = p.max_hp ?? "";
         document.getElementById("custom-participant-current-hp").value = p.current_hp ?? "";
         document.getElementById("custom-participant-notes").value = p.notes || "";
+        document.getElementById("selected-monster-index").value = p.monster_index || "";
+        document.getElementById("monster-search-input").value = p.name || "";
+        document.getElementById("monster-preview").textContent = p.monster_index ? `Imported monster: ${p.monster_index}` : "";
+        document.getElementById("custom-participant-ac").value = p.armor_class ?? "";
 
         for (let level = 1; level <= 9; level++) {
             const input = document.getElementById(`custom-participant-slots-${level}`);
@@ -926,6 +1060,7 @@ async function loadParticipants() {
 
         div.innerHTML = `
             <strong>${escapeHtml(p.name)}</strong> (${escapeHtml(p.participant_type)})<br>
+            ${p.monster_index ? `Monster: ${escapeHtml(p.monster_index)}<br>` : ""}
             ${p.class_name ? `Class/Type: ${escapeHtml(p.class_name)}<br>` : ""}
             ${p.level !== null && p.level !== undefined ? `Level: ${escapeHtml(p.level)}<br>` : ""}
             ${p.max_hp !== null && p.max_hp !== undefined ? `Max HP: ${escapeHtml(p.max_hp)}<br>` : ""}
@@ -1047,11 +1182,18 @@ document.getElementById("event-spell-search-input").addEventListener("input", (e
 });
 
 document.addEventListener("click", (e) => {
-    const autocomplete = document.getElementById("event-spell-autocomplete");
-    const input = document.getElementById("event-spell-search-input");
+    const spellAutocomplete = document.getElementById("event-spell-autocomplete");
+    const spellInput = document.getElementById("event-spell-search-input");
 
-    if (!autocomplete.contains(e.target) && e.target !== input) {
-        autocomplete.style.display = "none";
+    if (!spellAutocomplete.contains(e.target) && e.target !== spellInput) {
+        spellAutocomplete.style.display = "none";
+    }
+
+    const monsterAutocomplete = document.getElementById("monster-autocomplete");
+    const monsterInput = document.getElementById("monster-search-input");
+
+    if (!monsterAutocomplete.contains(e.target) && e.target !== monsterInput) {
+        monsterAutocomplete.style.display = "none";
     }
 });
 
@@ -1128,6 +1270,7 @@ document.getElementById("custom-participant-form").addEventListener("submit", as
 
     const payload = {
         character_id: null,
+        monster_index: document.getElementById("selected-monster-index").value || null,
         name: document.getElementById("custom-participant-name").value,
         participant_type: "OTHER",
         class_name: document.getElementById("custom-participant-class-name").value || null,
@@ -1190,6 +1333,25 @@ document.getElementById("custom-participant-form").addEventListener("submit", as
     } catch (err) {
         alert(err.message);
     }
+});
+
+document.getElementById("monster-search-input").addEventListener("input", (e) => {
+    const query = e.target.value;
+
+    if (monsterSearchDebounceHandle) {
+        clearTimeout(monsterSearchDebounceHandle);
+    }
+
+    monsterSearchDebounceHandle = setTimeout(async () => {
+        try {
+            await searchMonstersAutocomplete(query);
+        } catch (err) {
+            const autocomplete = document.getElementById("monster-autocomplete");
+            autocomplete.innerHTML = `<div style="padding:8px;" class="muted">Search failed</div>`;
+            autocomplete.style.display = "block";
+            document.getElementById("monster-preview").textContent = err.message;
+        }
+    }, 250);
 });
 
 document.getElementById("event-form").addEventListener("submit", async (e) => {

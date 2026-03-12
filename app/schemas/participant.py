@@ -5,12 +5,14 @@ class EncounterParticipantCreate(BaseModel):
     character_id: int | None = None
     name: str | None = Field(default=None, max_length=200)
     participant_type: str = Field(min_length=1, max_length=50)
+    monster_index: str | None = Field(default=None, max_length=100)
 
     class_name: str | None = Field(default=None, max_length=100)
     level: int | None = Field(default=None, ge=1)
 
     max_hp: int | None = Field(default=None, ge=0)
     current_hp: int | None = Field(default=None, ge=0)
+    armor_class: int | None = Field(default=None, ge=0)
 
     spell_slots_1: int | None = Field(default=None, ge=0)
     spell_slots_2: int | None = Field(default=None, ge=0)
@@ -27,6 +29,7 @@ class EncounterParticipantCreate(BaseModel):
 
 class EncounterParticipantUpdate(BaseModel):
     character_id: int | None = None
+    monster_index: str | None = Field(default=None, max_length=100)
     name: str | None = Field(default=None, max_length=200)
     participant_type: str | None = Field(default=None, min_length=1, max_length=50)
 
@@ -35,6 +38,7 @@ class EncounterParticipantUpdate(BaseModel):
 
     max_hp: int | None = Field(default=None, ge=0)
     current_hp: int | None = Field(default=None, ge=0)
+    armor_class: int | None = Field(default=None, ge=0)
 
     spell_slots_1: int | None = Field(default=None, ge=0)
     spell_slots_2: int | None = Field(default=None, ge=0)
@@ -52,6 +56,7 @@ class EncounterParticipantOut(BaseModel):
     id: int
     encounter_id: int
     character_id: int | None
+    monster_index: str | None
 
     name: str
     participant_type: str
@@ -61,6 +66,7 @@ class EncounterParticipantOut(BaseModel):
 
     max_hp: int | None
     current_hp: int | None
+    armor_class: int | None
 
     spell_slots_1: int | None
     spell_slots_2: int | None

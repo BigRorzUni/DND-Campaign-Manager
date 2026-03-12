@@ -28,6 +28,10 @@ class EncounterParticipant(Base):
     level: Mapped[int | None] = mapped_column(Integer, nullable=True)
     max_hp: Mapped[int | None] = mapped_column(Integer, nullable=True)
 
+    monster_index: Mapped[str | None] = mapped_column(String(100), nullable=True, index=True)
+    armor_class: Mapped[int | None] = mapped_column(Integer, nullable=True)
+
+
     # immutable encounter-start baseline
     initial_current_hp: Mapped[int | None] = mapped_column(Integer, nullable=True)
     initial_spell_slots_1: Mapped[int | None] = mapped_column(Integer, nullable=True)
