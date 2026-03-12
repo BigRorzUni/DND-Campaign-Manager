@@ -36,24 +36,16 @@ def create_character(
         max_hp=payload.max_hp,
         current_hp=payload.current_hp,
         armor_class=payload.armor_class,
+        spell_slots_1=payload.spell_slots_1,
+        spell_slots_2=payload.spell_slots_2,
+        spell_slots_3=payload.spell_slots_3,
+        spell_slots_4=payload.spell_slots_4,
+        spell_slots_5=payload.spell_slots_5,
+        spell_slots_6=payload.spell_slots_6,
+        spell_slots_7=payload.spell_slots_7,
+        spell_slots_8=payload.spell_slots_8,
+        spell_slots_9=payload.spell_slots_9,
         notes=payload.notes,
-    )
-
-    # initialise resource state automatically
-    initial_hp = payload.current_hp if payload.current_hp is not None else payload.max_hp
-
-    resource_state_repo.create(
-        db,
-        character_id=character.id,
-        current_hp=initial_hp,
-        spell_slots_1_current=0,
-        spell_slots_1_max=0,
-        spell_slots_2_current=0,
-        spell_slots_2_max=0,
-        spell_slots_3_current=0,
-        spell_slots_3_max=0,
-        hit_dice_current=payload.level if payload.level is not None else 0,
-        hit_dice_max=payload.level if payload.level is not None else 0,
     )
 
     return character
@@ -88,13 +80,22 @@ def update_character(
     return character_repo.update(
         db,
         obj,
-        name=payload.name,
-        role=payload.role,
+        name=payload.name if payload.name is not None else obj.name,
+        role=payload.role if payload.role is not None else obj.role,
         class_name=payload.class_name,
         level=payload.level,
         max_hp=payload.max_hp,
         current_hp=payload.current_hp,
         armor_class=payload.armor_class,
+        spell_slots_1=payload.spell_slots_1,
+        spell_slots_2=payload.spell_slots_2,
+        spell_slots_3=payload.spell_slots_3,
+        spell_slots_4=payload.spell_slots_4,
+        spell_slots_5=payload.spell_slots_5,
+        spell_slots_6=payload.spell_slots_6,
+        spell_slots_7=payload.spell_slots_7,
+        spell_slots_8=payload.spell_slots_8,
+        spell_slots_9=payload.spell_slots_9,
         notes=payload.notes,
     )
 

@@ -18,6 +18,7 @@ class EventRepo:
         detail: str | None,
         spell_index: str | None,
         spell_name_snapshot: str | None,
+        spell_brief_description: str | None,
     ) -> Event:
         obj = Event(
             encounter_id=encounter_id,
@@ -30,6 +31,7 @@ class EventRepo:
             detail=detail,
             spell_index=spell_index,
             spell_name_snapshot=spell_name_snapshot,
+            spell_brief_description=spell_brief_description,
         )
         db.add(obj)
         db.commit()

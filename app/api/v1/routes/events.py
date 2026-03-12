@@ -7,6 +7,7 @@ from app.schemas.event import EventCreate, EventOut, EventUpdate
 from app.services.ai_review_service import AiReviewService
 from app.services.encounter_state_service import recalculate_encounter_state
 from app.services.spell_dataset import SpellDatasetService
+from app.models.encounter import Encounter
 
 router = APIRouter(tags=["events"])
 ai_review_service = AiReviewService()
@@ -42,7 +43,7 @@ def create_event(
     payload: EventCreate,
     db: DbSession = Depends(get_db),
 ):
-    encounter = db.get(encounter, encounter_id)
+    encounter = db.get(Encounter, encounter_id)
     if not encounter:
         raise HTTPException(status_code=404, detail="Encounter not found")
 
