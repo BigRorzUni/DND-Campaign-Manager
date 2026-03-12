@@ -42,11 +42,58 @@
             <input id="character-max-hp" type="number" placeholder="Max HP" min="0" />
             <input id="character-current-hp" type="number" placeholder="Current HP" min="0" />
             <input id="character-ac" type="number" placeholder="Armour Class" min="0" />
+
+            <h4>Spell Slots</h4>
+            <input id="character-slots-1" type="number" placeholder="Spell Slots L1" min="0" />
+            <input id="character-slots-2" type="number" placeholder="Spell Slots L2" min="0" />
+            <input id="character-slots-3" type="number" placeholder="Spell Slots L3" min="0" />
+            <input id="character-slots-4" type="number" placeholder="Spell Slots L4" min="0" />
+            <input id="character-slots-5" type="number" placeholder="Spell Slots L5" min="0" />
+            <input id="character-slots-6" type="number" placeholder="Spell Slots L6" min="0" />
+            <input id="character-slots-7" type="number" placeholder="Spell Slots L7" min="0" />
+            <input id="character-slots-8" type="number" placeholder="Spell Slots L8" min="0" />
+            <input id="character-slots-9" type="number" placeholder="Spell Slots L9" min="0" />
+
             <textarea id="character-notes" placeholder="Character notes"></textarea>
 
             <button type="submit" id="character-submit-btn">Create Character</button>
             <button type="button" id="character-cancel-btn" style="display:none;">Cancel Edit</button>
         </form>
+    </section>
+
+    <section class="card">
+        <h2>Character Spells</h2>
+
+        <form id="character-spell-form">
+            <label for="spell-character-select">Character</label>
+            <select id="spell-character-select" required>
+                <option value="">Select character</option>
+            </select>
+
+            <label for="spell-search-input">Spell search</label>
+            <div style="position: relative;">
+                <input
+                    id="spell-search-input"
+                    type="text"
+                    placeholder="Start typing a spell name..."
+                    autocomplete="off"
+                />
+                <input type="hidden" id="selected-spell-index" />
+                <div
+                    id="spell-autocomplete"
+                    style="display:none; position:absolute; top:100%; left:0; right:0; z-index:10; background:white; border:1px solid #ccc; border-top:none; max-height:240px; overflow-y:auto;"
+                ></div>
+            </div>
+
+            <div id="spell-preview" class="muted"></div>
+
+            <textarea id="character-spell-notes" placeholder="Notes about this learnt spell (optional)"></textarea>
+
+            <button type="submit">Add Spell to Character</button>
+        </form>
+
+        <h3>Learnt Spells</h3>
+        <div id="character-spells-list" class="muted">Select a character to view spells.</div>
     </section>
 
     <section class="card">
@@ -81,6 +128,10 @@ let charactersCache = [];
 let editingSessionId = null;
 let sessionsCache = [];
 
+let spellSearchResultsCache = [];
+let selectedSpellDetail = null;
+let spellSearchDebounceHandle = null;
+
 async function api(path, options = {}) {
     const response = await fetch(path, {
         headers: { "Content-Type": "application/json" },
@@ -98,6 +149,26 @@ async function api(path, options = {}) {
 
     if (response.status === 204) return null;
     return response.json();
+}
+
+function escapeHtml(value) {
+    return String(value ?? "")
+        .replaceAll("&", "&amp;")
+        .replaceAll("<", "&lt;")
+        .replaceAll(">", "&gt;")
+        .replaceAll('"', "&quot;")
+        .replaceAll("'", "&#039;");
+}
+
+function renderCharacterSpellSlots(character) {
+    const rows = [];
+    for (let level = 1; level <= 9; level++) {
+        const value = character[`spell_slots_${level}`];
+        if (value !== null && value !== undefined && Number(value) > 0) {
+            rows.push(`L${level}: ${escapeHtml(value)}`);
+        }
+    }
+    return rows.length ? rows.join(" | ") : "No spell slots";
 }
 
 async function loadCampaign() {
@@ -123,14 +194,14 @@ async function loadSessions() {
         const div = document.createElement("div");
         div.className = "item";
         div.innerHTML = `
-            <strong>${s.title || "Untitled session"}</strong><br>
-            <span class="muted">${s.date}</span><br>
+            <strong>${escapeHtml(s.title || "Untitled session")}</strong><br>
+            <span class="muted">${escapeHtml(s.date)}</span><br>
             <span class="muted">
                 ${s.duration_minutes !== null && s.duration_minutes !== undefined
-                    ? `Duration: ${s.duration_minutes} minutes`
+                    ? `Duration: ${escapeHtml(s.duration_minutes)} minutes`
                     : "Duration not recorded"}
             </span><br>
-            <span class="muted">${s.notes || ""}</span><br>
+            <span class="muted">${escapeHtml(s.notes || "")}</span><br>
             <a href="/sessions/${s.id}/view">Open Session</a><br>
             <button type="button" onclick="startEditSession(${s.id})">Edit</button>
             <button type="button" onclick="deleteSession(${s.id})">Delete</button>
@@ -196,6 +267,27 @@ async function deleteSession(sessionId) {
     }
 }
 
+function populateCharacterSpellCharacterSelect() {
+    const select = document.getElementById("spell-character-select");
+    const currentValue = select.value;
+
+    select.innerHTML = `<option value="">Select character</option>`;
+
+    for (const c of charactersCache) {
+        const option = document.createElement("option");
+        option.value = String(c.id);
+        option.textContent =
+            `${c.name}` +
+            `${c.class_name ? ` | ${c.class_name}` : ""}` +
+            `${c.level !== null && c.level !== undefined ? ` | Level ${c.level}` : ""}`;
+        select.appendChild(option);
+    }
+
+    if (currentValue && charactersCache.some(c => String(c.id) === currentValue)) {
+        select.value = currentValue;
+    }
+}
+
 async function loadCharacters() {
     const characters = await api(`/api/v1/campaigns/${campaignId}/characters`);
     charactersCache = characters;
@@ -203,8 +295,11 @@ async function loadCharacters() {
     const container = document.getElementById("characters");
     container.innerHTML = "";
 
+    populateCharacterSpellCharacterSelect();
+
     if (!characters.length) {
         container.innerHTML = "<p class='muted'>No characters yet.</p>";
+        document.getElementById("character-spells-list").innerHTML = "<p class='muted'>No characters yet.</p>";
         return;
     }
 
@@ -212,19 +307,25 @@ async function loadCharacters() {
         const div = document.createElement("div");
         div.className = "item";
         div.innerHTML = `
-            <strong>${c.name}</strong><br>
+            <strong>${escapeHtml(c.name)}</strong><br>
             <span class="muted">
-                ${c.class_name ? `${c.class_name}` : ""}
-                ${c.level !== null && c.level !== undefined ? ` | Level ${c.level}` : ""}
+                ${c.class_name ? `${escapeHtml(c.class_name)}` : ""}
+                ${c.level !== null && c.level !== undefined ? ` | Level ${escapeHtml(c.level)}` : ""}
             </span><br>
             <span class="muted">
-                HP: ${c.current_hp ?? "?"}/${c.max_hp ?? "?"}
-                ${c.armor_class !== null && c.armor_class !== undefined ? ` | AC ${c.armor_class}` : ""}
+                HP: ${escapeHtml(c.current_hp ?? "?")}/${escapeHtml(c.max_hp ?? "?")}
+                ${c.armor_class !== null && c.armor_class !== undefined ? ` | AC ${escapeHtml(c.armor_class)}` : ""}
             </span><br>
-            <span class="muted">${c.notes || ""}</span><br>
+            <span class="muted">${renderCharacterSpellSlots(c)}</span><br>
+            <span class="muted">${escapeHtml(c.notes || "")}</span><br>
             <button type="button" onclick="startEditCharacter(${c.id})">Edit</button>
         `;
         container.appendChild(div);
+    }
+
+    const selectedCharacterId = document.getElementById("spell-character-select").value;
+    if (selectedCharacterId) {
+        await loadCharacterSpells(Number(selectedCharacterId));
     }
 }
 
@@ -241,6 +342,17 @@ function startEditCharacter(characterId) {
     document.getElementById("character-max-hp").value = c.max_hp ?? "";
     document.getElementById("character-current-hp").value = c.current_hp ?? "";
     document.getElementById("character-ac").value = c.armor_class ?? "";
+
+    document.getElementById("character-slots-1").value = c.spell_slots_1 ?? "";
+    document.getElementById("character-slots-2").value = c.spell_slots_2 ?? "";
+    document.getElementById("character-slots-3").value = c.spell_slots_3 ?? "";
+    document.getElementById("character-slots-4").value = c.spell_slots_4 ?? "";
+    document.getElementById("character-slots-5").value = c.spell_slots_5 ?? "";
+    document.getElementById("character-slots-6").value = c.spell_slots_6 ?? "";
+    document.getElementById("character-slots-7").value = c.spell_slots_7 ?? "";
+    document.getElementById("character-slots-8").value = c.spell_slots_8 ?? "";
+    document.getElementById("character-slots-9").value = c.spell_slots_9 ?? "";
+
     document.getElementById("character-notes").value = c.notes || "";
 
     document.getElementById("character-form-heading").textContent = "Edit Character";
@@ -264,14 +376,157 @@ function resetCharacterForm() {
     document.getElementById("character-cancel-btn").style.display = "none";
 }
 
+function resetCharacterSpellForm(keepCharacterSelection = true) {
+    const characterSelect = document.getElementById("spell-character-select");
+    const currentCharacter = characterSelect.value;
+
+    document.getElementById("spell-search-input").value = "";
+    document.getElementById("selected-spell-index").value = "";
+    document.getElementById("character-spell-notes").value = "";
+    document.getElementById("spell-preview").textContent = "";
+
+    const autocomplete = document.getElementById("spell-autocomplete");
+    autocomplete.innerHTML = "";
+    autocomplete.style.display = "none";
+
+    selectedSpellDetail = null;
+    spellSearchResultsCache = [];
+
+    if (!keepCharacterSelection) {
+        characterSelect.value = "";
+    } else {
+        characterSelect.value = currentCharacter;
+    }
+}
+
+async function searchSpellsAutocomplete(query) {
+    const trimmed = query.trim();
+    const autocomplete = document.getElementById("spell-autocomplete");
+    const preview = document.getElementById("spell-preview");
+
+    document.getElementById("selected-spell-index").value = "";
+    selectedSpellDetail = null;
+    preview.textContent = "";
+
+    if (!trimmed) {
+        spellSearchResultsCache = [];
+        autocomplete.innerHTML = "";
+        autocomplete.style.display = "none";
+        return;
+    }
+
+    const results = await api(`/api/v1/spells?q=${encodeURIComponent(trimmed)}`);
+    spellSearchResultsCache = results;
+
+    if (!results.length) {
+        autocomplete.innerHTML = `<div style="padding:8px;" class="muted">No matching spells</div>`;
+        autocomplete.style.display = "block";
+        return;
+    }
+
+    autocomplete.innerHTML = results.slice(0, 10).map(spell => `
+        <div
+            class="spell-autocomplete-item"
+            data-index="${escapeHtml(spell.index)}"
+            style="padding:8px; border-bottom:1px solid #eee; cursor:pointer;"
+        >
+            <strong>${escapeHtml(spell.name)}</strong>
+            <span class="muted"> | Level ${escapeHtml(spell.level)}</span><br>
+            <span class="muted">${escapeHtml(spell.brief_description || "")}</span>
+        </div>
+    `).join("");
+
+    autocomplete.style.display = "block";
+
+    for (const item of autocomplete.querySelectorAll(".spell-autocomplete-item")) {
+        item.addEventListener("click", async () => {
+            const spellIndex = item.dataset.index;
+            const spell = spellSearchResultsCache.find(s => s.index === spellIndex);
+
+            document.getElementById("selected-spell-index").value = spellIndex;
+            document.getElementById("spell-search-input").value = spell ? spell.name : spellIndex;
+            autocomplete.style.display = "none";
+
+            await loadSelectedSpellPreview(spellIndex);
+        });
+    }
+}
+
+async function loadSelectedSpellPreview(spellIndex) {
+    const preview = document.getElementById("spell-preview");
+
+    if (!spellIndex) {
+        selectedSpellDetail = null;
+        preview.textContent = "";
+        return;
+    }
+
+    const detail = await api(`/api/v1/spells/${encodeURIComponent(spellIndex)}`);
+    selectedSpellDetail = detail;
+
+    const description = Array.isArray(detail.desc) && detail.desc.length
+        ? detail.desc[0]
+        : (detail.brief_description || "");
+
+    const schoolName = detail.school?.name || detail.school || "";
+    preview.textContent =
+        `${detail.name} | Level ${detail.level}` +
+        `${schoolName ? ` | ${schoolName}` : ""}` +
+        `${description ? ` — ${description}` : ""}`;
+}
+
+async function loadCharacterSpells(characterId) {
+    const container = document.getElementById("character-spells-list");
+
+    if (!characterId) {
+        container.innerHTML = "<p class='muted'>Select a character to view spells.</p>";
+        return;
+    }
+
+    const spells = await api(`/api/v1/characters/${characterId}/spells`);
+
+    if (!spells.length) {
+        container.innerHTML = "<p class='muted'>No learnt spells yet.</p>";
+        return;
+    }
+
+    container.innerHTML = spells.map(spell => `
+        <div class="item">
+            <strong>${escapeHtml(spell.spell_name_snapshot)}</strong><br>
+            <span class="muted">
+                Level ${escapeHtml(spell.spell_level)}
+                ${spell.spell_index ? ` | ${escapeHtml(spell.spell_index)}` : ""}
+            </span><br>
+            <span class="muted">${escapeHtml(spell.brief_description || spell.notes || "")}</span><br>
+            ${spell.notes ? `<span class="muted">Notes: ${escapeHtml(spell.notes)}</span><br>` : ""}
+            <button type="button" onclick="removeCharacterSpell(${characterId}, ${spell.id}, ${JSON.stringify(spell.spell_name_snapshot)})">Remove</button>
+        </div>
+    `).join("");
+}
+
+async function removeCharacterSpell(characterId, spellId, spellName) {
+    if (!confirm(`Remove ${spellName} from this character?`)) {
+        return;
+    }
+
+    try {
+        await api(`/api/v1/characters/${characterId}/spells/${spellId}`, {
+            method: "DELETE"
+        });
+        await loadCharacterSpells(characterId);
+    } catch (err) {
+        alert(err.message);
+    }
+}
+
 async function loadTimePlayed() {
     const data = await api(`/api/v1/analytics/campaigns/${campaignId}/time-played`);
     const container = document.getElementById("time-played");
 
     container.innerHTML = `
         <div class="item">
-            <strong>${data.total_minutes}</strong> total minutes<br>
-            <span class="muted">${data.total_hours} total hours</span>
+            <strong>${escapeHtml(data.total_minutes)}</strong> total minutes<br>
+            <span class="muted">${escapeHtml(data.total_hours)} total hours</span>
         </div>
     `;
 }
@@ -287,8 +542,8 @@ async function loadDamageLeaderboard() {
 
     container.innerHTML = data.map(entry => `
         <div class="item">
-            <strong>${entry.source}</strong><br>
-            Total Damage: ${entry.total_damage}
+            <strong>${escapeHtml(entry.source)}</strong><br>
+            Total Damage: ${escapeHtml(entry.total_damage)}
         </div>
     `).join("");
 }
@@ -304,8 +559,8 @@ async function loadDamageTaken() {
 
     container.innerHTML = data.map(entry => `
         <div class="item">
-            <strong>${entry.target}</strong><br>
-            Total Damage Taken: ${entry.total_damage_taken}
+            <strong>${escapeHtml(entry.target)}</strong><br>
+            Total Damage Taken: ${escapeHtml(entry.total_damage_taken)}
         </div>
     `).join("");
 }
@@ -321,8 +576,8 @@ async function loadHealingReceived() {
 
     container.innerHTML = data.map(entry => `
         <div class="item">
-            <strong>${entry.target}</strong><br>
-            Total Healing Received: ${entry.total_healing_received}
+            <strong>${escapeHtml(entry.target)}</strong><br>
+            Total Healing Received: ${escapeHtml(entry.total_healing_received)}
         </div>
     `).join("");
 }
@@ -338,8 +593,8 @@ async function loadSpellUsage() {
 
     container.innerHTML = data.map(entry => `
         <div class="item">
-            <strong>${entry.source}</strong><br>
-            Total Spell Slots Used: ${entry.total_spell_slots_used}
+            <strong>${escapeHtml(entry.source)}</strong><br>
+            Total Spell Slots Used: ${escapeHtml(entry.total_spell_slots_used)}
         </div>
     `).join("");
 }
@@ -396,23 +651,124 @@ document.getElementById("character-form").addEventListener("submit", async (e) =
         armor_class: document.getElementById("character-ac").value
             ? Number(document.getElementById("character-ac").value)
             : null,
+
+        spell_slots_1: document.getElementById("character-slots-1").value
+            ? Number(document.getElementById("character-slots-1").value)
+            : null,
+        spell_slots_2: document.getElementById("character-slots-2").value
+            ? Number(document.getElementById("character-slots-2").value)
+            : null,
+        spell_slots_3: document.getElementById("character-slots-3").value
+            ? Number(document.getElementById("character-slots-3").value)
+            : null,
+        spell_slots_4: document.getElementById("character-slots-4").value
+            ? Number(document.getElementById("character-slots-4").value)
+            : null,
+        spell_slots_5: document.getElementById("character-slots-5").value
+            ? Number(document.getElementById("character-slots-5").value)
+            : null,
+        spell_slots_6: document.getElementById("character-slots-6").value
+            ? Number(document.getElementById("character-slots-6").value)
+            : null,
+        spell_slots_7: document.getElementById("character-slots-7").value
+            ? Number(document.getElementById("character-slots-7").value)
+            : null,
+        spell_slots_8: document.getElementById("character-slots-8").value
+            ? Number(document.getElementById("character-slots-8").value)
+            : null,
+        spell_slots_9: document.getElementById("character-slots-9").value
+            ? Number(document.getElementById("character-slots-9").value)
+            : null,
+
         notes: document.getElementById("character-notes").value || null
     };
 
-    if (editingCharacterId) {
-        await api(`/api/v1/characters/${editingCharacterId}`, {
-            method: "PUT",
-            body: JSON.stringify(payload)
-        });
-    } else {
-        await api(`/api/v1/campaigns/${campaignId}/characters`, {
-            method: "POST",
-            body: JSON.stringify(payload)
-        });
+    try {
+        if (editingCharacterId) {
+            await api(`/api/v1/characters/${editingCharacterId}`, {
+                method: "PUT",
+                body: JSON.stringify(payload)
+            });
+        } else {
+            await api(`/api/v1/campaigns/${campaignId}/characters`, {
+                method: "POST",
+                body: JSON.stringify(payload)
+            });
+        }
+
+        resetCharacterForm();
+        await loadCharacters();
+    } catch (err) {
+        alert(err.message);
+    }
+});
+
+document.getElementById("spell-character-select").addEventListener("change", async (e) => {
+    const characterId = e.target.value ? Number(e.target.value) : null;
+    await loadCharacterSpells(characterId);
+});
+
+document.getElementById("spell-search-input").addEventListener("input", (e) => {
+    const query = e.target.value;
+
+    if (spellSearchDebounceHandle) {
+        clearTimeout(spellSearchDebounceHandle);
     }
 
-    resetCharacterForm();
-    await loadCharacters();
+    spellSearchDebounceHandle = setTimeout(async () => {
+        try {
+            await searchSpellsAutocomplete(query);
+        } catch (err) {
+            const autocomplete = document.getElementById("spell-autocomplete");
+            autocomplete.innerHTML = `<div style="padding:8px;" class="muted">Search failed</div>`;
+            autocomplete.style.display = "block";
+            document.getElementById("spell-preview").textContent = err.message;
+        }
+    }, 250);
+});
+
+document.addEventListener("click", (e) => {
+    const autocomplete = document.getElementById("spell-autocomplete");
+    const input = document.getElementById("spell-search-input");
+
+    if (!autocomplete.contains(e.target) && e.target !== input) {
+        autocomplete.style.display = "none";
+    }
+});
+
+document.getElementById("character-spell-form").addEventListener("submit", async (e) => {
+    e.preventDefault();
+
+    const characterId = document.getElementById("spell-character-select").value
+        ? Number(document.getElementById("spell-character-select").value)
+        : null;
+
+    const spellIndex = document.getElementById("selected-spell-index").value || null;
+
+    if (!characterId) {
+        alert("Please select a character.");
+        return;
+    }
+
+    if (!spellIndex) {
+        alert("Please choose a spell.");
+        return;
+    }
+
+    try {
+        await api(`/api/v1/characters/${characterId}/spells`, {
+            method: "POST",
+            body: JSON.stringify({
+                spell_index: spellIndex,
+                notes: document.getElementById("character-spell-notes").value || null
+            })
+        });
+
+        resetCharacterSpellForm(true);
+        await loadCharacterSpells(characterId);
+    } catch (err) {
+        alert(err.message);
+    }
 });
 
 document.getElementById("session-cancel-btn").addEventListener("click", resetSessionForm);
@@ -427,6 +783,7 @@ async function init() {
     await loadDamageTaken();
     await loadHealingReceived();
     await loadSpellUsage();
+    resetCharacterSpellForm(true);
 }
 
 init();

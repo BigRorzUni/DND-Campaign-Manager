@@ -33,12 +33,24 @@ class EncounterParticipant(Base):
     initial_spell_slots_1: Mapped[int | None] = mapped_column(Integer, nullable=True)
     initial_spell_slots_2: Mapped[int | None] = mapped_column(Integer, nullable=True)
     initial_spell_slots_3: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    initial_spell_slots_4: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    initial_spell_slots_5: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    initial_spell_slots_6: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    initial_spell_slots_7: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    initial_spell_slots_8: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    initial_spell_slots_9: Mapped[int | None] = mapped_column(Integer, nullable=True)
 
     # mutable derived current state
     current_hp: Mapped[int | None] = mapped_column(Integer, nullable=True)
     spell_slots_1: Mapped[int | None] = mapped_column(Integer, nullable=True)
     spell_slots_2: Mapped[int | None] = mapped_column(Integer, nullable=True)
     spell_slots_3: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    spell_slots_4: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    spell_slots_5: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    spell_slots_6: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    spell_slots_7: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    spell_slots_8: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    spell_slots_9: Mapped[int | None] = mapped_column(Integer, nullable=True)
 
     notes: Mapped[str | None] = mapped_column(Text, nullable=True)
 

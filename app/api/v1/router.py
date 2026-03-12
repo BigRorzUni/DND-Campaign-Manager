@@ -1,6 +1,7 @@
 from fastapi import APIRouter
 from app.api.v1.routes import (
     campaigns,
+    character_spells,
     sessions,
     encounters,
     events,
@@ -8,6 +9,8 @@ from app.api.v1.routes import (
     characters,
     analytics,
     ai_review,
+    character_spells,
+    spells,
 )
 
 router = APIRouter()
@@ -19,3 +22,5 @@ router.include_router(participants.router)
 router.include_router(characters.router)
 router.include_router(analytics.router, prefix="/analytics")
 router.include_router(ai_review.router)
+router.include_router(character_spells.router)
+router.include_router(spells.router)
