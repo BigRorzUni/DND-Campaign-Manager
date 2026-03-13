@@ -17,6 +17,7 @@ from app.services.monster_dataset import MonsterDatasetService
 from app.services.spell_dataset import SpellDatasetService
 from app.services.equipment_dataset import EquipmentDatasetService
 from app.services.encounter_state_service import recalculate_encounter_state
+from app.services.encounter_simulation_service import EncounterSimulationService
 
 
 DB_PATH = Path("dev.db")
@@ -188,7 +189,7 @@ def seed_database() -> None:
         db.refresh(thalia)
 
         # ------------------------------------------------------------------
-        # Session / Encounter
+        # Session / Manual Encounter
         # ------------------------------------------------------------------
         session = Session(
             campaign_id=campaign.id,
@@ -208,6 +209,9 @@ def seed_database() -> None:
             notes="Seeded demo encounter",
             ai_review_cached=None,
             ai_review_is_stale=True,
+            is_simulated=False,
+            simulation_status=None,
+            winner=None,
         )
         db.add(encounter)
         db.commit()
@@ -226,7 +230,7 @@ def seed_database() -> None:
         goblin_type = extract_monster_type(goblin)
 
         # ------------------------------------------------------------------
-        # Encounter participants are snapshots of combat state
+        # Manual encounter participants are snapshots of combat state
         # ------------------------------------------------------------------
         ezra_p = EncounterParticipant(
             encounter_id=encounter.id,
@@ -368,11 +372,12 @@ def seed_database() -> None:
         db.refresh(goblin_shaman_p)
 
         # ------------------------------------------------------------------
-        # Events now use action-based fields
+        # Manual events use action-based fields
         # ------------------------------------------------------------------
         events = [
             Event(
                 encounter_id=encounter.id,
+                round_number=1,
                 kind="DAMAGE",
                 source_participant_id=ogre_p.id,
                 target_participant_id=thalia_p.id,
@@ -385,6 +390,7 @@ def seed_database() -> None:
             ),
             Event(
                 encounter_id=encounter.id,
+                round_number=1,
                 kind="DAMAGE",
                 source_participant_id=ezra_p.id,
                 target_participant_id=ogre_p.id,
@@ -397,6 +403,7 @@ def seed_database() -> None:
             ),
             Event(
                 encounter_id=encounter.id,
+                round_number=2,
                 kind="HEAL",
                 source_participant_id=ezra_p.id,
                 target_participant_id=thalia_p.id,
@@ -409,6 +416,7 @@ def seed_database() -> None:
             ),
             Event(
                 encounter_id=encounter.id,
+                round_number=2,
                 kind="MISC",
                 source_participant_id=ezra_p.id,
                 target_participant_id=ogre_p.id,
@@ -421,6 +429,7 @@ def seed_database() -> None:
             ),
             Event(
                 encounter_id=encounter.id,
+                round_number=3,
                 kind="DAMAGE",
                 source_participant_id=ogre_p.id,
                 target_participant_id=ezra_p.id,
@@ -433,6 +442,7 @@ def seed_database() -> None:
             ),
             Event(
                 encounter_id=encounter.id,
+                round_number=3,
                 kind="MISC",
                 source_participant_id=goblin_shaman_p.id,
                 target_participant_id=thalia_p.id,
@@ -445,6 +455,7 @@ def seed_database() -> None:
             ),
             Event(
                 encounter_id=encounter.id,
+                round_number=4,
                 kind="DAMAGE",
                 source_participant_id=goblin_shaman_p.id,
                 target_participant_id=ezra_p.id,
@@ -462,10 +473,168 @@ def seed_database() -> None:
 
         recalculate_encounter_state(db, encounter.id)
 
+        # ------------------------------------------------------------------
+        # Simulated Encounter
+        # ------------------------------------------------------------------
+        simulated_encounter = Encounter(
+            session_id=session.id,
+            name="Simulated Goblin Ambush",
+            expected_difficulty="Medium",
+            notes="Automatically simulated encounter",
+            ai_review_cached=None,
+            ai_review_is_stale=True,
+            is_simulated=True,
+            simulation_status="PENDING",
+            winner=None,
+        )
+        db.add(simulated_encounter)
+        db.commit()
+        db.refresh(simulated_encounter)
+
+        ezra_sim = EncounterParticipant(
+            encounter_id=simulated_encounter.id,
+            character_id=ezra.id,
+            monster_index=None,
+            name=ezra.name,
+            participant_type="PARTY",
+            class_name=ezra.class_name,
+            level=ezra.level,
+            armor_class=ezra.armor_class,
+            max_hp=ezra.max_hp,
+            initial_current_hp=ezra.max_hp,
+            initial_spell_slots_1=ezra.spell_slots_1,
+            initial_spell_slots_2=ezra.spell_slots_2,
+            initial_spell_slots_3=ezra.spell_slots_3,
+            initial_spell_slots_4=ezra.spell_slots_4,
+            initial_spell_slots_5=ezra.spell_slots_5,
+            initial_spell_slots_6=ezra.spell_slots_6,
+            initial_spell_slots_7=ezra.spell_slots_7,
+            initial_spell_slots_8=ezra.spell_slots_8,
+            initial_spell_slots_9=ezra.spell_slots_9,
+            current_hp=ezra.max_hp,
+            spell_slots_1=ezra.spell_slots_1,
+            spell_slots_2=ezra.spell_slots_2,
+            spell_slots_3=ezra.spell_slots_3,
+            spell_slots_4=ezra.spell_slots_4,
+            spell_slots_5=ezra.spell_slots_5,
+            spell_slots_6=ezra.spell_slots_6,
+            spell_slots_7=ezra.spell_slots_7,
+            spell_slots_8=ezra.spell_slots_8,
+            spell_slots_9=ezra.spell_slots_9,
+            notes="Wizard at simulation start",
+        )
+
+        thalia_sim = EncounterParticipant(
+            encounter_id=simulated_encounter.id,
+            character_id=thalia.id,
+            monster_index=None,
+            name=thalia.name,
+            participant_type="PARTY",
+            class_name=thalia.class_name,
+            level=thalia.level,
+            armor_class=thalia.armor_class,
+            max_hp=thalia.max_hp,
+            initial_current_hp=thalia.max_hp,
+            initial_spell_slots_1=thalia.spell_slots_1,
+            initial_spell_slots_2=thalia.spell_slots_2,
+            initial_spell_slots_3=thalia.spell_slots_3,
+            initial_spell_slots_4=thalia.spell_slots_4,
+            initial_spell_slots_5=thalia.spell_slots_5,
+            initial_spell_slots_6=thalia.spell_slots_6,
+            initial_spell_slots_7=thalia.spell_slots_7,
+            initial_spell_slots_8=thalia.spell_slots_8,
+            initial_spell_slots_9=thalia.spell_slots_9,
+            current_hp=thalia.max_hp,
+            spell_slots_1=thalia.spell_slots_1,
+            spell_slots_2=thalia.spell_slots_2,
+            spell_slots_3=thalia.spell_slots_3,
+            spell_slots_4=thalia.spell_slots_4,
+            spell_slots_5=thalia.spell_slots_5,
+            spell_slots_6=thalia.spell_slots_6,
+            spell_slots_7=thalia.spell_slots_7,
+            spell_slots_8=thalia.spell_slots_8,
+            spell_slots_9=thalia.spell_slots_9,
+            notes="Fighter at simulation start",
+        )
+
+        goblin_sim_1 = EncounterParticipant(
+            encounter_id=simulated_encounter.id,
+            character_id=None,
+            monster_index=goblin["index"],
+            name="Goblin Scout A",
+            participant_type="ENEMY",
+            class_name=goblin_type,
+            level=None,
+            armor_class=goblin_ac,
+            max_hp=goblin.get("hit_points"),
+            initial_current_hp=goblin.get("hit_points"),
+            initial_spell_slots_1=None,
+            initial_spell_slots_2=None,
+            initial_spell_slots_3=None,
+            initial_spell_slots_4=None,
+            initial_spell_slots_5=None,
+            initial_spell_slots_6=None,
+            initial_spell_slots_7=None,
+            initial_spell_slots_8=None,
+            initial_spell_slots_9=None,
+            current_hp=goblin.get("hit_points"),
+            spell_slots_1=None,
+            spell_slots_2=None,
+            spell_slots_3=None,
+            spell_slots_4=None,
+            spell_slots_5=None,
+            spell_slots_6=None,
+            spell_slots_7=None,
+            spell_slots_8=None,
+            spell_slots_9=None,
+            notes="Simulated goblin",
+        )
+
+        goblin_sim_2 = EncounterParticipant(
+            encounter_id=simulated_encounter.id,
+            character_id=None,
+            monster_index=goblin["index"],
+            name="Goblin Scout B",
+            participant_type="ENEMY",
+            class_name=goblin_type,
+            level=None,
+            armor_class=goblin_ac,
+            max_hp=goblin.get("hit_points"),
+            initial_current_hp=goblin.get("hit_points"),
+            initial_spell_slots_1=None,
+            initial_spell_slots_2=None,
+            initial_spell_slots_3=None,
+            initial_spell_slots_4=None,
+            initial_spell_slots_5=None,
+            initial_spell_slots_6=None,
+            initial_spell_slots_7=None,
+            initial_spell_slots_8=None,
+            initial_spell_slots_9=None,
+            current_hp=goblin.get("hit_points"),
+            spell_slots_1=None,
+            spell_slots_2=None,
+            spell_slots_3=None,
+            spell_slots_4=None,
+            spell_slots_5=None,
+            spell_slots_6=None,
+            spell_slots_7=None,
+            spell_slots_8=None,
+            spell_slots_9=None,
+            notes="Simulated goblin",
+        )
+
+        db.add_all([ezra_sim, thalia_sim, goblin_sim_1, goblin_sim_2])
+        db.commit()
+
+        # Run the simulated encounter
+        simulation_service = EncounterSimulationService()
+        simulation_service.run_simulation(db, simulated_encounter.id)
+
         print("Database reset and seeded successfully.")
         print(f"Campaign ID: {campaign.id}")
         print(f"Session ID: {session.id}")
-        print(f"Encounter ID: {encounter.id}")
+        print(f"Manual encounter ID: {encounter.id}")
+        print(f"Simulated encounter ID: {simulated_encounter.id}")
         print(f"NPC caster participant ID: {goblin_shaman_p.id}")
 
     finally:
