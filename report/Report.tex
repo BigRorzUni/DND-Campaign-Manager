@@ -272,13 +272,22 @@ Tests verify the behaviour of:
 \item analytics endpoints
 \end{itemize}
 
+\subsection{Containerisation}
 
-The API was developed and tested locally using the FastAPI development
-server. At the time of writing the application has not been deployed to
-a public environment, although the project structure supports future
-deployment using containerisation or cloud hosting platforms such as
-Docker, AWS, Railway, or Render.
+The application was containerised using Docker to ensure a consistent
+runtime environment. A Dockerfile installs dependencies and runs the
+FastAPI server using \texttt{uvicorn}. Environment variables are used
+to configure the database connection and API keys, allowing the same
+container image to be used across development and production.
 
+\subsection{Cloud Deployment}
+
+The application was deployed on the Railway cloud platform, which
+automatically builds and runs the Docker container. In production the
+service connects to a managed PostgreSQL database provided by Railway.
+
+The deployed application is available at:
+\url{https://dnd-campaign-manager-production.up.railway.app}
 %------------------------------------------------
 
 \section{Documentation}
@@ -305,7 +314,7 @@ Several limitations exist in the current implementation:
 
 Future improvements could include richer simulation mechanics, improved
 analytics visualisation, user authentication, multi-DM campaign support,
-and deployment to cloud infrastructure.
+and improved security.
 
 %------------------------------------------------
 
