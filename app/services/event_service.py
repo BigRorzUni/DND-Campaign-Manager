@@ -23,6 +23,12 @@ class EventService:
         if not encounter:
             raise HTTPException(status_code=404, detail="Encounter not found")
 
+        if encounter.is_simulated:
+            raise HTTPException(
+                status_code=400,
+                detail="Manual events cannot be added to simulated encounters",
+            )
+
         source = None
         if payload.source_participant_id is not None:
             source = self.participant_repo.get(db, payload.source_participant_id)
@@ -64,6 +70,7 @@ class EventService:
             action_name_snapshot=action_name_snapshot,
             action_description_snapshot=action_description_snapshot,
             detail=payload.detail,
+            round_number=None,   # <-- add this
         )
 
     def update_event(
