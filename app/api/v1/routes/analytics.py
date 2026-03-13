@@ -15,8 +15,92 @@ from app.schemas.analytics import (
     EncounterReviewOut,
     TimePlayedOut,
 )
+from app.services.spell_dataset import SpellDatasetService
 
 router = APIRouter(tags=["analytics"])
+
+
+def _get_spell_level_cached(
+    spell_index: str,
+    cache: dict[str, int | None],
+) -> int | None:
+    if spell_index not in cache:
+        try:
+            spell = SpellDatasetService.get_spell(spell_index)
+            level = spell.get("level")
+            cache[spell_index] = level if isinstance(level, int) else None
+        except Exception:
+            cache[spell_index] = None
+
+    return cache[spell_index]
+
+
+def _calculate_party_spell_slots_used_for_encounter(
+    db: DbSession,
+    encounter_id: int,
+    party_ids: set[int],
+) -> int:
+    if not party_ids:
+        return 0
+
+    events = (
+        db.query(Event)
+        .filter(Event.encounter_id == encounter_id)
+        .filter(Event.source_participant_id.in_(party_ids))
+        .filter(Event.action_type == "spell")
+        .all()
+    )
+
+    spell_level_cache: dict[str, int | None] = {}
+    total = 0
+
+    for event in events:
+        if not event.action_ref:
+            continue
+
+        level = _get_spell_level_cached(event.action_ref, spell_level_cache)
+
+        # Cantrips do not consume slots
+        if level is not None and level > 0:
+            total += 1
+
+    return total
+
+
+def _calculate_party_spell_slots_used_for_campaign(
+    db: DbSession,
+    campaign_id: int,
+) -> dict[str, int]:
+    source_participant = aliased(EncounterParticipant)
+
+    rows = (
+        db.query(
+            Event,
+            source_participant.name.label("source_name"),
+        )
+        .join(Encounter, Event.encounter_id == Encounter.id)
+        .join(Session, Encounter.session_id == Session.id)
+        .join(source_participant, Event.source_participant_id == source_participant.id)
+        .filter(Session.campaign_id == campaign_id)
+        .filter(source_participant.participant_type == "PARTY")
+        .filter(Event.action_type == "spell")
+        .all()
+    )
+
+    spell_level_cache: dict[str, int | None] = {}
+    totals_by_source: dict[str, int] = {}
+
+    for event, source_name in rows:
+        if not event.action_ref:
+            continue
+
+        level = _get_spell_level_cached(event.action_ref, spell_level_cache)
+        if level is None or level == 0:
+            continue
+
+        totals_by_source[source_name] = totals_by_source.get(source_name, 0) + 1
+
+    return totals_by_source
 
 
 @router.get(
@@ -120,31 +204,22 @@ def healing_received(campaign_id: int, db: DbSession = Depends(get_db)):
     response_model=list[SpellUsageEntry],
 )
 def spell_usage(campaign_id: int, db: DbSession = Depends(get_db)):
-    source_participant = aliased(EncounterParticipant)
+    totals_by_source = _calculate_party_spell_slots_used_for_campaign(db, campaign_id)
 
-    rows = (
-        db.query(
-            source_participant.name.label("source"),
-            func.coalesce(func.sum(Event.spell_slots_consumed), 0).label("total_spell_slots_used"),
-        )
-        .join(Encounter, Event.encounter_id == Encounter.id)
-        .join(Session, Encounter.session_id == Session.id)
-        .join(source_participant, Event.source_participant_id == source_participant.id)
-        .filter(Session.campaign_id == campaign_id)
-        .filter(source_participant.participant_type == "PARTY")
-        .filter(Event.spell_slots_consumed.isnot(None))
-        .group_by(source_participant.name)
-        .order_by(func.coalesce(func.sum(Event.spell_slots_consumed), 0).desc())
-        .all()
-    )
-
-    return [
+    rows = [
         SpellUsageEntry(
-            source=row.source,
-            total_spell_slots_used=row.total_spell_slots_used or 0,
+            source=source,
+            total_spell_slots_used=total,
         )
-        for row in rows
+        for source, total in sorted(
+            totals_by_source.items(),
+            key=lambda item: item[1],
+            reverse=True,
+        )
     ]
+
+    return rows
+
 
 @router.get(
     "/campaigns/{campaign_id}/time-played",
@@ -163,7 +238,7 @@ def time_played(campaign_id: int, db: DbSession = Depends(get_db)):
     return TimePlayedOut(
         total_minutes=total_minutes,
         total_hours=total_hours,
-    ) 
+    )
 
 
 @router.get(
@@ -183,6 +258,7 @@ def encounter_review(encounter_id: int, db: DbSession = Depends(get_db)):
     )
 
     party_ids = [p.id for p in party_participants]
+    party_id_set = set(party_ids)
 
     if not party_ids:
         return EncounterReviewOut(
@@ -213,12 +289,10 @@ def encounter_review(encounter_id: int, db: DbSession = Depends(get_db)):
         or 0
     )
 
-    party_spell_slots_used = (
-        db.query(func.coalesce(func.sum(Event.spell_slots_consumed), 0))
-        .filter(Event.encounter_id == encounter_id)
-        .filter(Event.source_participant_id.in_(party_ids))
-        .scalar()
-        or 0
+    party_spell_slots_used = _calculate_party_spell_slots_used_for_encounter(
+        db,
+        encounter_id,
+        party_id_set,
     )
 
     party_zero_hp_count = sum(

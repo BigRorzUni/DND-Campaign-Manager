@@ -5,12 +5,10 @@ from app.api.deps import get_db
 from app.repositories.campaign_repo import CampaignRepo
 from app.repositories.character_repo import CharacterRepo
 from app.schemas.character import CharacterCreate, CharacterOut, CharacterUpdate
-from app.repositories.resource_state_repo import ResourceStateRepo
 
 router = APIRouter(tags=["characters"])
 campaign_repo = CampaignRepo()
 character_repo = CharacterRepo()
-resource_state_repo = ResourceStateRepo()
 
 @router.post(
     "/campaigns/{campaign_id}/characters",
@@ -36,6 +34,8 @@ def create_character(
         max_hp=payload.max_hp,
         current_hp=payload.current_hp,
         armor_class=payload.armor_class,
+        spell_indices=payload.spell_indices,
+        equipment_indices=payload.equipment_indices,
         spell_slots_1=payload.spell_slots_1,
         spell_slots_2=payload.spell_slots_2,
         spell_slots_3=payload.spell_slots_3,
@@ -87,6 +87,8 @@ def update_character(
         max_hp=payload.max_hp,
         current_hp=payload.current_hp,
         armor_class=payload.armor_class,
+        spell_indices=payload.spell_indices if payload.spell_indices is not None else obj.spell_indices,
+        equipment_indices=payload.equipment_indices if payload.equipment_indices is not None else obj.equipment_indices,
         spell_slots_1=payload.spell_slots_1,
         spell_slots_2=payload.spell_slots_2,
         spell_slots_3=payload.spell_slots_3,
