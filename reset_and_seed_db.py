@@ -205,7 +205,6 @@ def seed_database() -> None:
             session_id=session.id,
             name="Ogre Bridge Fight",
             expected_difficulty="Medium",
-            rounds=4,
             notes="Seeded demo encounter",
             ai_review_cached=None,
             ai_review_is_stale=True,

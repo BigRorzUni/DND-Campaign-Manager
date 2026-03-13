@@ -8,7 +8,7 @@ class EventCreate(BaseModel):
     amount: int | None = Field(default=None, ge=0)
 
     action_type: str | None = Field(default=None, max_length=50)
-    action_ref: str | None = Field(default=None, max_length=150)
+    action_ref: str | None = Field(default=None, max_length=100)
 
     detail: str | None = Field(default=None, max_length=4000)
 
@@ -20,7 +20,7 @@ class EventUpdate(BaseModel):
     amount: int | None = Field(default=None, ge=0)
 
     action_type: str | None = Field(default=None, max_length=50)
-    action_ref: str | None = Field(default=None, max_length=150)
+    action_ref: str | None = Field(default=None, max_length=100)
 
     detail: str | None = Field(default=None, max_length=4000)
 
@@ -32,6 +32,7 @@ class EventOut(BaseModel):
     source_participant_id: int | None
     target_participant_id: int | None
     amount: int | None
+    round_number: int | None
 
     action_type: str | None
     action_ref: str | None

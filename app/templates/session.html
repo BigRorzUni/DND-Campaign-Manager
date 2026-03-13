@@ -18,21 +18,18 @@
     <div id="encounters"></div>
 
     <h3 id="encounter-form-heading">Create Encounter</h3>
-
+    
     <form id="encounter-form">
-        <input type="hidden" id="encounter-id">
+        <input type="hidden" id="encounter-id" />
 
-        <input id="encounter-name" placeholder="Encounter name" required>
+        <input id="encounter-name-input" placeholder="Encounter name" required />
+        <input id="encounter-expected-difficulty" placeholder="Expected difficulty" />
+        <textarea id="encounter-notes-input" placeholder="Encounter notes"></textarea>
 
-        <input id="encounter-difficulty"
-               placeholder="Expected difficulty (Easy / Medium / Hard)">
-
-        <input id="encounter-rounds"
-               type="number"
-               placeholder="Rounds">
-
-        <textarea id="encounter-notes"
-                  placeholder="Encounter notes"></textarea>
+        <label style="display:block; margin:8px 0;">
+            <input id="encounter-is-simulated" type="checkbox" />
+            Simulated encounter
+        </label>
 
         <button type="submit" id="encounter-submit-btn">Create Encounter</button>
         <button type="button" id="encounter-cancel-btn" style="display:none;">Cancel Edit</button>
@@ -87,6 +84,15 @@ async function loadSession() {
 
 }
 
+function escapeHtml(value) {
+    return String(value ?? "")
+        .replaceAll("&", "&amp;")
+        .replaceAll("<", "&lt;")
+        .replaceAll(">", "&gt;")
+        .replaceAll('"', "&quot;")
+        .replaceAll("'", "&#039;");
+}
+
 async function loadEncounters() {
 
     const encounters =
@@ -112,13 +118,19 @@ async function loadEncounters() {
 
         div.className = "item";
 
+        const simulationText = e.is_simulated
+            ? `Simulated | ${escapeHtml(e.simulation_status || "PENDING")}`
+            : "Normal encounter";
+
         div.innerHTML = `
-            <strong>${e.name}</strong><br>
+            <strong>${escapeHtml(e.name)}</strong><br>
             <span class="muted">
-                ${e.expected_difficulty || "Difficulty not set"}
-                ${e.rounds !== null && e.rounds !== undefined ? ` | Rounds: ${e.rounds}` : ""}
+                ${e.expected_difficulty ? escapeHtml(e.expected_difficulty) : "No difficulty set"}
+                ${e.rounds !== null && e.rounds !== undefined ? ` | Rounds: ${escapeHtml(e.rounds)}` : ""}
             </span><br>
-            <span class="muted">${e.notes || ""}</span><br>
+            <span class="muted">${escapeHtml(simulationText)}</span><br>
+            ${e.winner ? `<span class="muted">Winner: ${escapeHtml(e.winner)}</span><br>` : ""}
+            <span class="muted">${escapeHtml(e.notes || "")}</span><br>
             <a href="/encounters/${e.id}/view">Open Encounter</a><br>
             <button type="button" onclick="startEditEncounter(${e.id})">Edit</button>
             <button type="button" onclick="deleteEncounter(${e.id})">Delete</button>
@@ -129,25 +141,20 @@ async function loadEncounters() {
 }
 
 function startEditEncounter(encounterId) {
-    const e = encountersCache.find(en => en.id === encounterId);
-    if (!e) return;
+    const encounter = encountersCache.find(e => e.id === encounterId);
+    if (!encounter) return;
 
-    editingEncounterId = e.id;
+    editingEncounterId = encounter.id;
 
-    document.getElementById("encounter-id").value = e.id;
-    document.getElementById("encounter-name").value = e.name || "";
-    document.getElementById("encounter-difficulty").value = e.expected_difficulty || "";
-    document.getElementById("encounter-rounds").value = e.rounds ?? "";
-    document.getElementById("encounter-notes").value = e.notes || "";
+    document.getElementById("encounter-id").value = encounter.id;
+    document.getElementById("encounter-name-input").value = encounter.name || "";
+    document.getElementById("encounter-expected-difficulty").value = encounter.expected_difficulty || "";
+    document.getElementById("encounter-notes-input").value = encounter.notes || "";
+    document.getElementById("encounter-is-simulated").checked = !!encounter.is_simulated;
 
     document.getElementById("encounter-form-heading").textContent = "Edit Encounter";
     document.getElementById("encounter-submit-btn").textContent = "Save Changes";
     document.getElementById("encounter-cancel-btn").style.display = "inline-block";
-
-    window.scrollTo({
-        top: document.getElementById("encounter-form-heading").offsetTop - 40,
-        behavior: "smooth"
-    });
 }
 
 function resetEncounterForm() {
@@ -155,6 +162,7 @@ function resetEncounterForm() {
 
     document.getElementById("encounter-form").reset();
     document.getElementById("encounter-id").value = "";
+    document.getElementById("encounter-is-simulated").checked = false;
 
     document.getElementById("encounter-form-heading").textContent = "Create Encounter";
     document.getElementById("encounter-submit-btn").textContent = "Create Encounter";
@@ -184,26 +192,14 @@ async function deleteEncounter(encounterId) {
     }
 }
 
-document
-.getElementById("encounter-form")
-.addEventListener("submit", async (e) => {
-
+document.getElementById("encounter-form").addEventListener("submit", async (e) => {
     e.preventDefault();
 
     const payload = {
-        name:
-            document.getElementById("encounter-name").value,
-
-        expected_difficulty:
-            document.getElementById("encounter-difficulty").value || null,
-
-        rounds:
-            document.getElementById("encounter-rounds").value
-                ? Number(document.getElementById("encounter-rounds").value)
-                : null,
-
-        notes:
-            document.getElementById("encounter-notes").value || null
+        name: document.getElementById("encounter-name-input").value,
+        expected_difficulty: document.getElementById("encounter-expected-difficulty").value || null,
+        notes: document.getElementById("encounter-notes-input").value || null,
+        is_simulated: document.getElementById("encounter-is-simulated").checked
     };
 
     try {
@@ -220,7 +216,6 @@ document
         }
 
         resetEncounterForm();
-
         await loadEncounters();
     } catch (err) {
         alert(err.message);
