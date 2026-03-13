@@ -13,6 +13,7 @@ class EventRepo:
         source_participant_id: int | None,
         target_participant_id: int | None,
         amount: int | None,
+        round_number: int | None,
         action_type: str | None,
         action_ref: str | None,
         action_name_snapshot: str | None,
@@ -25,6 +26,7 @@ class EventRepo:
             source_participant_id=source_participant_id,
             target_participant_id=target_participant_id,
             amount=amount,
+            round_number=round_number,
             action_type=action_type,
             action_ref=action_ref,
             action_name_snapshot=action_name_snapshot,
@@ -54,7 +56,7 @@ class EventRepo:
         return (
             db.query(Event)
             .filter(Event.encounter_id == encounter_id)
-            .order_by(Event.id.desc())
+            .order_by(Event.round_number.asc().nullsfirst(), Event.id.asc())
             .all()
         )
 

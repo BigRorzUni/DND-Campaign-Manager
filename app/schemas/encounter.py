@@ -1,16 +1,21 @@
 from pydantic import BaseModel, Field
 
+
 class EncounterCreate(BaseModel):
-    name: str = Field(min_length=1, max_length=200)
-    expected_difficulty: str | None = Field(default=None, max_length=50)
-    rounds: int | None = Field(default=None, ge=0)
-    notes: str | None = Field(default=None, max_length=4000)
+    name: str
+    expected_difficulty: str | None = None
+    notes: str | None = None
+    is_simulated: bool = False
+
 
 class EncounterUpdate(BaseModel):
-    name: str | None = Field(default=None, max_length=200)
-    expected_difficulty: str | None = Field(default=None, max_length=50)
-    rounds: int | None = Field(default=None, ge=0)
-    notes: str | None = Field(default=None, max_length=4000)
+    name: str | None = None
+    expected_difficulty: str | None = None
+    notes: str | None = None
+    is_simulated: bool | None = None
+    simulation_status: str | None = None
+    winner: str | None = None
+
 
 class EncounterOut(BaseModel):
     id: int
@@ -19,5 +24,8 @@ class EncounterOut(BaseModel):
     expected_difficulty: str | None
     rounds: int | None
     notes: str | None
+    is_simulated: bool
+    simulation_status: str | None
+    winner: str | None
 
     model_config = {"from_attributes": True}

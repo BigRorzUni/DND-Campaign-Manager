@@ -13,6 +13,11 @@
         <p id="encounter-notes" class="muted"></p>
     </section>
 
+    <div id="simulation-controls" style="display:none; margin-top:12px;">
+        <button type="button" id="run-simulation-btn">Run Simulation</button>
+        <span id="simulation-status-text" class="muted" style="margin-left:8px;"></span>
+    </div>
+
     <section class="card">
         <h2>Participants</h2>
         <div id="participants"></div>
@@ -128,6 +133,7 @@
     </form>
     </section>
 
+
     <section class="card">
         <h2>Encounter Review</h2>
 
@@ -162,51 +168,60 @@
         <h2>Events</h2>
         <div id="events"></div>
 
-    <h3 id="event-form-heading">Create Event</h3>
-    <form id="event-form">
-        <input type="hidden" id="event-id">
-
-        <label for="event-source-select">Source</label>
-        <select id="event-source-select">
-            <option value="">Select source</option>
-        </select>
-
-        <label for="event-action-select">Action</label>
-        <select id="event-action-select">
-            <option value="">Select action</option>
-        </select>
-
-        <div id="action-description" class="muted"></div>
-
-        <label for="event-target-select">Target</label>
-        <select id="event-target-select">
-            <option value="">Self / No target</option>
-        </select>
-
-        <div id="event-amount-container" style="display:none;">
-            <label for="event-amount" id="event-amount-label">Amount</label>
-            <input id="event-amount" type="number" min="0" placeholder="Amount" />
+        <div id="simulation-controls" style="display:none; margin-top:12px;">
+            <button type="button" id="run-simulation-btn">Run Simulation</button>
+            <span id="simulation-status-text" class="muted" style="margin-left:8px;"></span>
         </div>
 
-        <div id="custom-action-fields" style="display:none;">
-            <label for="custom-damage">Damage</label>
-            <input id="custom-damage" type="number" min="0" placeholder="Damage" />
-
-            <label for="custom-healing">Healing</label>
-            <input id="custom-healing" type="number" min="0" placeholder="Healing" />
-
-            <label for="event-detail-custom">Note</label>
-            <textarea id="event-detail-custom" placeholder="Detail"></textarea>
+        <div id="simulated-event-lock-message" class="muted" style="display:none; margin-top:12px;">
+            Events are generated automatically for simulated encounters.
         </div>
 
-        <div id="standard-note-fields">
-            <label for="event-detail-standard">Note</label>
-            <textarea id="event-detail-standard" placeholder="Detail"></textarea>
-        </div>
+        <h3 id="event-form-heading">Create Event</h3>
+        <form id="event-form">
+            <input type="hidden" id="event-id">
 
-        <button type="submit" id="event-submit-btn">Create Event</button>
-        <button type="button" id="event-cancel-btn" style="display:none;">Cancel Edit</button>
-    </form>
+            <label for="event-source-select">Source</label>
+            <select id="event-source-select">
+                <option value="">Select source</option>
+            </select>
+
+            <label for="event-action-select">Action</label>
+            <select id="event-action-select">
+                <option value="">Select action</option>
+            </select>
+
+            <div id="action-description" class="muted"></div>
+
+            <label for="event-target-select">Target</label>
+            <select id="event-target-select">
+                <option value="">Self / No target</option>
+            </select>
+
+            <div id="event-amount-container" style="display:none;">
+                <label for="event-amount" id="event-amount-label">Amount</label>
+                <input id="event-amount" type="number" min="0" placeholder="Amount" />
+            </div>
+
+            <div id="custom-action-fields" style="display:none;">
+                <label for="custom-damage">Damage</label>
+                <input id="custom-damage" type="number" min="0" placeholder="Damage" />
+
+                <label for="custom-healing">Healing</label>
+                <input id="custom-healing" type="number" min="0" placeholder="Healing" />
+
+                <label for="event-detail-custom">Note</label>
+                <textarea id="event-detail-custom" placeholder="Detail"></textarea>
+            </div>
+
+            <div id="standard-note-fields">
+                <label for="event-detail-standard">Note</label>
+                <textarea id="event-detail-standard" placeholder="Detail"></textarea>
+            </div>
+
+            <button type="submit" id="event-submit-btn">Create Event</button>
+            <button type="button" id="event-cancel-btn" style="display:none;">Cancel Edit</button>
+        </form>
     </section>
 
 </div>
@@ -954,6 +969,11 @@ async function deleteParticipant(participantId) {
 
 // Put an existing event into the form for editing.
 async function startEditEvent(eventId) {
+    if (await isSimulatedEncounter()) {
+        alert("Manual event editing is disabled for simulated encounters.");
+        return;
+    }
+
     const e = eventsCache.find(ev => ev.id === eventId);
     if (!e) return;
 
@@ -1015,8 +1035,14 @@ async function startEditEvent(eventId) {
         behavior: "smooth"
     });
 }
+
 // Delete an event, then refresh dependent UI.
 async function deleteEvent(eventId) {
+    if (await isSimulatedEncounter()) {
+        alert("Manual event deletion is disabled for simulated encounters.");
+        return;
+    }
+
     const e = eventsCache.find(ev => ev.id === eventId);
     const label = e ? `${e.kind}${e.detail ? ` (${e.detail})` : ""}` : `event ${eventId}`;
 
@@ -1090,10 +1116,11 @@ async function loadEncounter() {
             ? `Expected difficulty: ${encounter.expected_difficulty}`
             : "Expected difficulty not set.";
 
-    document.getElementById("encounter-rounds").textContent =
-        encounter.rounds !== null && encounter.rounds !== undefined
-            ? `Rounds: ${encounter.rounds}`
-            : "Rounds not recorded.";
+    if (encounter.is_simulated && encounter.rounds !== null && encounter.rounds !== undefined) {
+        document.getElementById("encounter-rounds").textContent = `Rounds: ${encounter.rounds}`;
+    } else {
+        document.getElementById("encounter-rounds").textContent = "";
+    }
 
     document.getElementById("encounter-notes").textContent =
         encounter.notes || "";
@@ -1101,6 +1128,26 @@ async function loadEncounter() {
     const reviewExpected = document.getElementById("review-expected");
     if (reviewExpected) {
         reviewExpected.textContent = encounter.expected_difficulty || "Not set";
+    }
+
+    const simulationControls = document.getElementById("simulation-controls");
+    const simulationStatusText = document.getElementById("simulation-status-text");
+
+    if (encounter.is_simulated) {
+        simulationControls.style.display = "block";
+
+        let statusText = encounter.simulation_status || "PENDING";
+        if (encounter.winner) {
+            statusText += ` | Winner: ${encounter.winner}`;
+        }
+        simulationStatusText.textContent = statusText;
+
+        setEventEditingEnabled(false);
+    } else {
+        simulationControls.style.display = "none";
+        simulationStatusText.textContent = "";
+
+        setEventEditingEnabled(true);
     }
 
     const session = await api(`/api/v1/sessions/${encounter.session_id}`);
@@ -1198,8 +1245,36 @@ async function loadParticipants() {
     }
 }
 
+function setEventEditingEnabled(enabled) {
+    const form = document.getElementById("event-form");
+    const heading = document.getElementById("event-form-heading");
+    const message = document.getElementById("simulated-event-lock-message");
+
+    if (form) {
+        form.style.display = enabled ? "block" : "none";
+    }
+
+    if (heading) {
+        heading.style.display = enabled ? "block" : "none";
+    }
+
+    if (message) {
+        message.style.display = enabled ? "none" : "block";
+    }
+
+    if (!enabled) {
+        resetEventForm();
+    }
+}
+
+async function isSimulatedEncounter() {
+    const encounter = await api(`/api/v1/encounters/${encounterId}`);
+    return !!encounter.is_simulated;
+}
+
 // Load events and render them using action snapshots instead of spell-only snapshots.
 async function loadEvents() {
+    const encounter = await api(`/api/v1/encounters/${encounterId}`);
     const events = await api(`/api/v1/encounters/${encounterId}/events`);
     eventsCache = events;
 
@@ -1211,37 +1286,66 @@ async function loadEvents() {
         return;
     }
 
+    const grouped = new Map();
+
     for (const e of events) {
-        const sourceParticipant = participantsCache.find(
-            (p) => p.id === e.source_participant_id
-        );
-        const targetParticipant = participantsCache.find(
-            (p) => p.id === e.target_participant_id
-        );
+        const key = e.round_number ?? "ungrouped";
+        if (!grouped.has(key)) {
+            grouped.set(key, []);
+        }
+        grouped.get(key).push(e);
+    }
 
-        const sourceName = sourceParticipant ? sourceParticipant.name : "Unknown";
-        const targetName = targetParticipant ? targetParticipant.name : "No target";
+    for (const [roundKey, roundEvents] of grouped.entries()) {
+        const section = document.createElement("div");
+        section.className = "item";
 
-        const actionLabel = e.action_name_snapshot
-            ? `${e.action_name_snapshot}${e.action_description_snapshot ? ` — ${e.action_description_snapshot}` : ""}`
-            : "";
+        if (roundKey !== "ungrouped") {
+            section.innerHTML = `<strong>Round ${escapeHtml(roundKey)}</strong><br>`;
+        } else {
+            section.innerHTML = `<strong>Events</strong><br>`;
+        }
 
-        const div = document.createElement("div");
-        div.className = "item";
+        const inner = document.createElement("div");
 
-        div.innerHTML = `
-            <strong>${escapeHtml(e.kind)}</strong><br>
-            <span class="muted">
-                ${escapeHtml(sourceName)} → ${escapeHtml(targetName)}
-                ${e.amount !== null && e.amount !== undefined ? ` | ${escapeHtml(e.amount)}` : ""}
-                ${actionLabel ? ` | ${escapeHtml(actionLabel)}` : ""}
-            </span><br>
-            <span class="muted">${escapeHtml(e.detail || "")}</span><br>
-            <button type="button" onclick="startEditEvent(${e.id})">Edit</button>
-            <button type="button" onclick="deleteEvent(${e.id})">Delete</button>
-        `;
+        inner.innerHTML = roundEvents.map((e) => {
+            const sourceParticipant = participantsCache.find(
+                (p) => p.id === e.source_participant_id
+            );
+            const targetParticipant = participantsCache.find(
+                (p) => p.id === e.target_participant_id
+            );
 
-        container.appendChild(div);
+            const sourceName = sourceParticipant ? sourceParticipant.name : "Unknown";
+            const targetName = targetParticipant ? targetParticipant.name : "No target";
+
+            const actionLabel = e.action_name_snapshot
+                ? `${e.action_name_snapshot}${e.action_description_snapshot ? ` — ${e.action_description_snapshot}` : ""}`
+                : "";
+
+            return `
+                <div style="margin:6px 0; padding-left:8px;">
+                    <span class="muted">
+                        ${escapeHtml(sourceName)} → ${escapeHtml(targetName)}
+                        | ${escapeHtml(e.kind)}
+                        ${e.amount !== null && e.amount !== undefined ? ` | ${escapeHtml(e.amount)}` : ""}
+                        ${actionLabel ? ` | ${escapeHtml(actionLabel)}` : ""}
+                        ${e.detail ? ` | ${escapeHtml(e.detail)}` : ""}
+                    </span><br>
+                    ${
+                        encounter.is_simulated
+                            ? ""
+                            : `
+                                <button type="button" onclick="startEditEvent(${e.id})">Edit</button>
+                                <button type="button" onclick="deleteEvent(${e.id})">Delete</button>
+                              `
+                    }
+                </div>
+            `;
+        }).join("");
+
+        section.appendChild(inner);
+        container.appendChild(section);
     }
 }
 
@@ -1275,6 +1379,29 @@ async function loadEncounterReview() {
 
 // Show party participant extra fields when a character is selected.
 document.getElementById("participant-character-id").addEventListener("change", handlePartyCharacterSelection);
+
+document.getElementById("run-simulation-btn").addEventListener("click", async () => {
+    const button = document.getElementById("run-simulation-btn");
+    button.disabled = true;
+    button.textContent = "Running...";
+
+    try {
+        await api(`/api/v1/encounters/${encounterId}/simulate`, {
+            method: "POST"
+        });
+
+        await loadEncounter();
+        await loadParticipants();
+        await loadEvents();
+        await loadEncounterReview();
+        await loadAiReview();
+    } catch (err) {
+        alert(err.message);
+    } finally {
+        button.disabled = false;
+        button.textContent = "Run Simulation";
+    }
+});
 
 // When the source changes, reload the available actions for that participant.
 document.getElementById("event-source-select").addEventListener("change", async (e) => {
@@ -1468,6 +1595,11 @@ document.getElementById("monster-search-input").addEventListener("input", (e) =>
 // Submit create/update event using action_type + action_ref.
 document.getElementById("event-form").addEventListener("submit", async (e) => {
     e.preventDefault();
+
+    if (await isSimulatedEncounter()) {
+        alert("Manual event creation is disabled for simulated encounters.");
+        return;
+    }
 
     let payload;
     try {

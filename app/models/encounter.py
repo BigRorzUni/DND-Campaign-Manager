@@ -1,4 +1,6 @@
-from sqlalchemy import Boolean, ForeignKey, Integer, String, Text
+from __future__ import annotations
+
+from sqlalchemy import ForeignKey, Integer, String, Text, Boolean
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db.base import Base
@@ -15,21 +17,26 @@ class Encounter(Base):
     )
 
     name: Mapped[str] = mapped_column(String(200), nullable=False)
-    expected_difficulty: Mapped[str | None] = mapped_column(String(50))
-    rounds: Mapped[int | None] = mapped_column(Integer)
-    notes: Mapped[str | None] = mapped_column(String(4000))
+    expected_difficulty: Mapped[str | None] = mapped_column(String(50), nullable=True)
+    rounds: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    notes: Mapped[str | None] = mapped_column(Text, nullable=True)
 
-    ai_review_cached: Mapped[str | None] = mapped_column(Text)
-    ai_review_is_stale: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
+    ai_review_cached: Mapped[str | None] = mapped_column(Text, nullable=True)
+    ai_review_is_stale: Mapped[bool] = mapped_column(nullable=False, default=True)
+
+    # New fields for simulated encounters
+    is_simulated: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    simulation_status: Mapped[str | None] = mapped_column(String(50), nullable=True)
+    winner: Mapped[str | None] = mapped_column(String(20), nullable=True)
 
     session: Mapped["Session"] = relationship(back_populates="encounters")
 
-    events: Mapped[list["Event"]] = relationship(
+    participants: Mapped[list["EncounterParticipant"]] = relationship(
         back_populates="encounter",
         cascade="all, delete-orphan",
     )
 
-    participants: Mapped[list["EncounterParticipant"]] = relationship(
+    events: Mapped[list["Event"]] = relationship(
         back_populates="encounter",
         cascade="all, delete-orphan",
     )

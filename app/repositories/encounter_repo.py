@@ -1,24 +1,11 @@
 from sqlalchemy.orm import Session as DbSession
+
 from app.models.encounter import Encounter
 
+
 class EncounterRepo:
-    def create(
-        self,
-        db: DbSession,
-        *,
-        session_id: int,
-        name: str,
-        expected_difficulty: str | None,
-        rounds: int | None,
-        notes: str | None
-    ) -> Encounter:
-        obj = Encounter(
-            session_id=session_id,
-            name=name,
-            expected_difficulty=expected_difficulty,
-            rounds=rounds,
-            notes=notes
-        )
+    def create(self, db: DbSession, **fields) -> Encounter:
+        obj = Encounter(**fields)
         db.add(obj)
         db.commit()
         db.refresh(obj)
@@ -35,25 +22,9 @@ class EncounterRepo:
             .all()
         )
 
-    def update(
-        self,
-        db: DbSession,
-        obj: Encounter,
-        *,
-        name: str | None,
-        expected_difficulty: str | None,
-        rounds: int | None,
-        notes: str | None
-    ) -> Encounter:
-        if name is not None:
-            obj.name = name
-        if expected_difficulty is not None:
-            obj.expected_difficulty = expected_difficulty
-        if rounds is not None:
-            obj.rounds = rounds
-        if notes is not None:
-            obj.notes = notes
-
+    def update(self, db: DbSession, obj: Encounter, **fields) -> Encounter:
+        for key, value in fields.items():
+            setattr(obj, key, value)
         db.commit()
         db.refresh(obj)
         return obj
