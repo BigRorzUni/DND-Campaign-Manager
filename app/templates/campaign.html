@@ -4,14 +4,17 @@
 
 {% block content %}
 
+<!-- Campaign page UI for managing sessions, characters, loadouts, and analytics -->
 <div id="campaign-page" data-campaign-id="{{ campaign_id }}">
 
+    <!-- Campaign summary loaded from API -->
     <section class="card">
         <h2 id="campaign-name">Campaign</h2>
         <p id="campaign-description" class="muted"></p>
         <p class="muted small">Campaign ID: <code id="campaign-id">{{ campaign_id }}</code></p>
     </section>
 
+    <!-- Session CRUD section -->
     <section class="card">
         <h2>Sessions</h2>
         <div id="sessions"></div>
@@ -28,6 +31,7 @@
         </form>
     </section>
 
+    <!-- Character CRUD section -->
     <section class="card">
         <h2>Characters</h2>
         <div id="characters"></div>
@@ -38,6 +42,7 @@
 
             <input id="character-name" placeholder="Character name" required />
 
+            <!-- Class selection drives spell slot visibility -->
             <label for="character-class-name">Class</label>
             <select id="character-class-name">
                 <option value="">Select class</option>
@@ -48,17 +53,19 @@
             <input id="character-current-hp" type="number" placeholder="Current HP" min="0" />
             <input id="character-ac" type="number" placeholder="Armour Class" min="0" />
 
-            <h4>Spell Slots</h4>
-            <input id="character-slots-1" type="number" placeholder="Spell Slots L1" min="0" />
-            <input id="character-slots-2" type="number" placeholder="Spell Slots L2" min="0" />
-            <input id="character-slots-3" type="number" placeholder="Spell Slots L3" min="0" />
-            <input id="character-slots-4" type="number" placeholder="Spell Slots L4" min="0" />
-            <input id="character-slots-5" type="number" placeholder="Spell Slots L5" min="0" />
-            <input id="character-slots-6" type="number" placeholder="Spell Slots L6" min="0" />
-            <input id="character-slots-7" type="number" placeholder="Spell Slots L7" min="0" />
-            <input id="character-slots-8" type="number" placeholder="Spell Slots L8" min="0" />
-            <input id="character-slots-9" type="number" placeholder="Spell Slots L9" min="0" />
-
+            <!-- Hidden for non-spellcasting classes to improve UX -->
+            <div id="character-spell-slots-section" style="display:none;">
+                <h4>Spell Slots</h4>
+                <input id="character-slots-1" type="number" placeholder="Spell Slots L1" min="0" />
+                <input id="character-slots-2" type="number" placeholder="Spell Slots L2" min="0" />
+                <input id="character-slots-3" type="number" placeholder="Spell Slots L3" min="0" />
+                <input id="character-slots-4" type="number" placeholder="Spell Slots L4" min="0" />
+                <input id="character-slots-5" type="number" placeholder="Spell Slots L5" min="0" />
+                <input id="character-slots-6" type="number" placeholder="Spell Slots L6" min="0" />
+                <input id="character-slots-7" type="number" placeholder="Spell Slots L7" min="0" />
+                <input id="character-slots-8" type="number" placeholder="Spell Slots L8" min="0" />
+                <input id="character-slots-9" type="number" placeholder="Spell Slots L9" min="0" />
+            </div>
             <textarea id="character-notes" placeholder="Character notes"></textarea>
 
             <button type="submit" id="character-submit-btn">Create Character</button>
@@ -66,6 +73,7 @@
         </form>
     </section>
 
+    <!-- Character spell and equipment management -->
     <section class="card">
         <h2>Character Loadout</h2>
 
@@ -82,6 +90,7 @@
             <h3>Known Spells</h3>
             <div id="character-spells-list" class="muted">Loading...</div>
 
+            <!-- Spell autocomplete uses dataset search, then adds snapshot to character -->
             <form id="character-spell-form">
                 <label for="spell-search-input">Add spell</label>
                 <div style="position: relative;">
@@ -105,6 +114,7 @@
             <h3>Equipment</h3>
             <div id="character-equipment-list" class="muted">Loading...</div>
 
+            <!-- Equipment autocomplete uses dataset search, then adds snapshot to character -->
             <form id="character-equipment-form">
                 <label for="equipment-search-input">Add equipment</label>
                 <div style="position: relative;">
@@ -127,6 +137,7 @@
         </div>
     </section>
 
+    <!-- Read-only campaign analytics derived from events -->
     <section class="card">
         <h2>Analytics</h2>
 
@@ -149,10 +160,12 @@
 </div>
 
 <script>
+// Campaign identifier passed from server-rendered template
 const campaignId = Number(
     document.getElementById("campaign-page").dataset.campaignId
 );
 
+// Local state caches reduce repeated lookups and support edit mode
 let editingCharacterId = null;
 let charactersCache = [];
 let classesCache = [];
@@ -168,6 +181,7 @@ let equipmentSearchResultsCache = [];
 let selectedEquipmentDetail = null;
 let equipmentSearchDebounceHandle = null;
 
+// Generic JSON API helper with centralised error handling
 async function api(path, options = {}) {
     const response = await fetch(path, {
         headers: { "Content-Type": "application/json" },
@@ -187,6 +201,7 @@ async function api(path, options = {}) {
     return response.json();
 }
 
+// Prevent raw HTML insertion when rendering API data
 function escapeHtml(value) {
     return String(value ?? "")
         .replaceAll("&", "&amp;")
@@ -196,6 +211,7 @@ function escapeHtml(value) {
         .replaceAll("'", "&#039;");
 }
 
+// Render compact spell slot summary for character cards
 function renderCharacterSpellSlots(character) {
     const rows = [];
     for (let level = 1; level <= 9; level++) {
@@ -207,17 +223,66 @@ function renderCharacterSpellSlots(character) {
     return rows.length ? rows.join(" | ") : "No spell slots";
 }
 
+// Frontend rule for showing spell slots only on spellcasting classes
+function classHasSpellcasting(cls) {
+    if (!cls || !cls.name) return false;
+
+    const spellcastingClasses = new Set([
+        "Bard",
+        "Cleric",
+        "Druid",
+        "Paladin",
+        "Ranger",
+        "Sorcerer",
+        "Warlock",
+        "Wizard"
+    ]);
+
+    return spellcastingClasses.has(cls.name);
+}
+
+// Resolve selected class from cached class list
+function getSelectedClassObject() {
+    const selectedClassName = document.getElementById("character-class-name").value;
+    if (!selectedClassName) return null;
+
+    return classesCache.find(cls => cls.name === selectedClassName) || null;
+}
+
+// Reset hidden spell slot values to avoid submitting stale data
+function clearCharacterSpellSlotInputs() {
+    for (let level = 1; level <= 9; level++) {
+        document.getElementById(`character-slots-${level}`).value = "";
+    }
+}
+
+// Toggle spell slot UI based on selected class
+function updateCharacterSpellSlotVisibility() {
+    const spellSlotsSection = document.getElementById("character-spell-slots-section");
+    const selectedClass = getSelectedClassObject();
+    const shouldShow = classHasSpellcasting(selectedClass);
+
+    spellSlotsSection.style.display = shouldShow ? "block" : "none";
+
+    if (!shouldShow) {
+        clearCharacterSpellSlotInputs();
+    }
+}
+
+// Current character selected in loadout section
 function getSelectedLoadoutCharacterId() {
     const value = document.getElementById("loadout-character-select").value;
     return value ? Number(value) : null;
 }
 
+// Resolve selected loadout character from cache
 function getSelectedLoadoutCharacter() {
     const id = getSelectedLoadoutCharacterId();
     if (!id) return null;
     return charactersCache.find(c => c.id === id) || null;
 }
 
+// Clear spell autocomplete state after submit or selection change
 function resetSpellSearch() {
     document.getElementById("spell-search-input").value = "";
     document.getElementById("selected-spell-index").value = "";
@@ -231,6 +296,7 @@ function resetSpellSearch() {
     selectedSpellDetail = null;
 }
 
+// Clear equipment autocomplete state after submit or selection change
 function resetEquipmentSearch() {
     document.getElementById("equipment-search-input").value = "";
     document.getElementById("selected-equipment-index").value = "";
@@ -244,6 +310,7 @@ function resetEquipmentSearch() {
     selectedEquipmentDetail = null;
 }
 
+// Show or hide loadout section based on character selection
 function updateLoadoutVisibility() {
     const characterId = getSelectedLoadoutCharacterId();
     const emptyState = document.getElementById("loadout-empty-state");
@@ -259,6 +326,7 @@ function updateLoadoutVisibility() {
     content.style.display = "block";
 }
 
+// Load top-level campaign metadata
 async function loadCampaign() {
     const campaign = await api(`/api/v1/campaigns/${campaignId}`);
     document.getElementById("campaign-name").textContent = campaign.name;
@@ -266,6 +334,7 @@ async function loadCampaign() {
         campaign.description || "No description provided.";
 }
 
+// Load class options once and cache for UI logic
 async function loadClassOptions() {
     const classes = await api(`/api/v1/classes`);
     classesCache = classes;
@@ -285,8 +354,11 @@ async function loadClassOptions() {
     if (currentValue && classes.some(c => c.name === currentValue)) {
         select.value = currentValue;
     }
+
+    updateCharacterSpellSlotVisibility();
 }
 
+// Load and render session list
 async function loadSessions() {
     const sessions = await api(`/api/v1/campaigns/${campaignId}/sessions`);
     sessionsCache = sessions;
@@ -319,6 +391,7 @@ async function loadSessions() {
     }
 }
 
+// Populate session form for editing existing record
 function startEditSession(sessionId) {
     const s = sessionsCache.find(se => se.id === sessionId);
     if (!s) return;
@@ -341,6 +414,7 @@ function startEditSession(sessionId) {
     });
 }
 
+// Reset session form back to create mode
 function resetSessionForm() {
     editingSessionId = null;
 
@@ -352,6 +426,7 @@ function resetSessionForm() {
     document.getElementById("session-cancel-btn").style.display = "none";
 }
 
+// Delete session and refresh affected UI
 async function deleteSession(sessionId) {
     const s = sessionsCache.find(se => se.id === sessionId);
     const sessionLabel = s?.title || `session ${sessionId}`;
@@ -376,6 +451,7 @@ async function deleteSession(sessionId) {
     }
 }
 
+// Populate character selector used by loadout management
 function populateLoadoutCharacterSelect() {
     const select = document.getElementById("loadout-character-select");
     const currentValue = select.value;
@@ -397,6 +473,7 @@ function populateLoadoutCharacterSelect() {
     }
 }
 
+// Load and render campaign characters
 async function loadCharacters() {
     const characters = await api(`/api/v1/campaigns/${campaignId}/characters`);
     charactersCache = characters;
@@ -441,6 +518,7 @@ async function loadCharacters() {
     }
 }
 
+// Populate character form for edit mode
 function startEditCharacter(characterId) {
     const c = charactersCache.find(ch => ch.id === characterId);
     if (!c) return;
@@ -475,8 +553,11 @@ function startEditCharacter(characterId) {
         top: document.getElementById("character-form-heading").offsetTop - 40,
         behavior: "smooth"
     });
+
+    updateCharacterSpellSlotVisibility();
 }
 
+// Reset character form back to create mode
 function resetCharacterForm() {
     editingCharacterId = null;
 
@@ -486,8 +567,11 @@ function resetCharacterForm() {
     document.getElementById("character-form-heading").textContent = "Create Character";
     document.getElementById("character-submit-btn").textContent = "Create Character";
     document.getElementById("character-cancel-btn").style.display = "none";
+
+    updateCharacterSpellSlotVisibility();
 }
 
+// Search spells and restrict to valid class / slot availability
 async function searchSpellsAutocomplete(query) {
     const trimmed = query.trim();
     const autocomplete = document.getElementById("spell-autocomplete");
@@ -579,6 +663,7 @@ async function searchSpellsAutocomplete(query) {
     }
 }
 
+// Load selected spell detail for preview before add
 async function loadSelectedSpellPreview(spellIndex) {
     const preview = document.getElementById("spell-preview");
 
@@ -607,6 +692,7 @@ async function loadSelectedSpellPreview(spellIndex) {
         `${description ? ` — ${description}` : ""}`;
 }
 
+// Search equipment dataset for autocomplete
 async function searchEquipmentAutocomplete(query) {
     const trimmed = query.trim();
     const autocomplete = document.getElementById("equipment-autocomplete");
@@ -660,6 +746,7 @@ async function searchEquipmentAutocomplete(query) {
     }
 }
 
+// Load selected equipment detail for preview before add
 async function loadSelectedEquipmentPreview(equipmentIndex) {
     const preview = document.getElementById("equipment-preview");
 
@@ -681,6 +768,7 @@ async function loadSelectedEquipmentPreview(equipmentIndex) {
         `${detail.brief_description ? ` — ${detail.brief_description}` : ""}`;
 }
 
+// Load spell snapshots already attached to selected character
 async function loadCharacterSpells(characterId) {
     const container = document.getElementById("character-spells-list");
 
@@ -714,6 +802,7 @@ async function loadCharacterSpells(characterId) {
     `).join("");
 }
 
+// Load equipment snapshots already attached to selected character
 async function loadCharacterEquipment(characterId) {
     const container = document.getElementById("character-equipment-list");
 
@@ -753,13 +842,14 @@ async function loadCharacterEquipment(characterId) {
     `).join("");
 }
 
-
+// Refresh both spell and equipment loadout panels
 async function loadCharacterLoadout(characterId) {
     updateLoadoutVisibility();
     await loadCharacterSpells(characterId);
     await loadCharacterEquipment(characterId);
 }
 
+// Remove spell from selected character loadout
 async function removeCharacterSpell(characterId, spellIndex, spellName) {
     if (!confirm(`Remove ${spellName} from this character?`)) {
         return;
@@ -776,6 +866,7 @@ async function removeCharacterSpell(characterId, spellIndex, spellName) {
     }
 }
 
+// Remove equipment from selected character loadout
 async function removeCharacterEquipment(characterId, equipmentIndex, equipmentName) {
     if (!confirm(`Remove ${equipmentName} from this character?`)) {
         return;
@@ -792,6 +883,7 @@ async function removeCharacterEquipment(characterId, equipmentIndex, equipmentNa
     }
 }
 
+// Load total playtime analytics
 async function loadTimePlayed() {
     const data = await api(`/api/v1/analytics/campaigns/${campaignId}/time-played`);
     const container = document.getElementById("time-played");
@@ -804,6 +896,7 @@ async function loadTimePlayed() {
     `;
 }
 
+// Load campaign damage dealt analytics
 async function loadDamageLeaderboard() {
     const data = await api(`/api/v1/analytics/campaigns/${campaignId}/damage-leaderboard`);
     const container = document.getElementById("damage-leaderboard");
@@ -821,6 +914,7 @@ async function loadDamageLeaderboard() {
     `).join("");
 }
 
+// Load campaign damage taken analytics
 async function loadDamageTaken() {
     const data = await api(`/api/v1/analytics/campaigns/${campaignId}/damage-taken`);
     const container = document.getElementById("damage-taken");
@@ -838,6 +932,7 @@ async function loadDamageTaken() {
     `).join("");
 }
 
+// Load campaign healing analytics
 async function loadHealingReceived() {
     const data = await api(`/api/v1/analytics/campaigns/${campaignId}/healing-received`);
     const container = document.getElementById("healing-received");
@@ -855,6 +950,7 @@ async function loadHealingReceived() {
     `).join("");
 }
 
+// Load campaign spell slot usage analytics
 async function loadSpellUsage() {
     const data = await api(`/api/v1/analytics/campaigns/${campaignId}/spell-usage`);
     const container = document.getElementById("spell-usage");
@@ -872,6 +968,7 @@ async function loadSpellUsage() {
     `).join("");
 }
 
+// Session form handles both create and update depending on edit state
 document.getElementById("session-form").addEventListener("submit", async (e) => {
     e.preventDefault();
 
@@ -905,6 +1002,7 @@ document.getElementById("session-form").addEventListener("submit", async (e) => 
     }
 });
 
+// Character form handles both create and update depending on edit state
 document.getElementById("character-form").addEventListener("submit", async (e) => {
     e.preventDefault();
 
@@ -924,31 +1022,32 @@ document.getElementById("character-form").addEventListener("submit", async (e) =
         armor_class: document.getElementById("character-ac").value
             ? Number(document.getElementById("character-ac").value)
             : null,
-        spell_slots_1: document.getElementById("character-slots-1").value
+        // Hidden spell slot inputs submit null for non-spellcasters
+        spell_slots_1: document.getElementById("character-spell-slots-section").style.display !== "none" && document.getElementById("character-slots-1").value
             ? Number(document.getElementById("character-slots-1").value)
             : null,
-        spell_slots_2: document.getElementById("character-slots-2").value
+        spell_slots_2: document.getElementById("character-spell-slots-section").style.display !== "none" && document.getElementById("character-slots-2").value
             ? Number(document.getElementById("character-slots-2").value)
             : null,
-        spell_slots_3: document.getElementById("character-slots-3").value
+        spell_slots_3: document.getElementById("character-spell-slots-section").style.display !== "none" && document.getElementById("character-slots-3").value
             ? Number(document.getElementById("character-slots-3").value)
             : null,
-        spell_slots_4: document.getElementById("character-slots-4").value
+        spell_slots_4: document.getElementById("character-spell-slots-section").style.display !== "none" && document.getElementById("character-slots-4").value
             ? Number(document.getElementById("character-slots-4").value)
             : null,
-        spell_slots_5: document.getElementById("character-slots-5").value
+        spell_slots_5: document.getElementById("character-spell-slots-section").style.display !== "none" && document.getElementById("character-slots-5").value
             ? Number(document.getElementById("character-slots-5").value)
             : null,
-        spell_slots_6: document.getElementById("character-slots-6").value
+        spell_slots_6: document.getElementById("character-spell-slots-section").style.display !== "none" && document.getElementById("character-slots-6").value
             ? Number(document.getElementById("character-slots-6").value)
             : null,
-        spell_slots_7: document.getElementById("character-slots-7").value
+        spell_slots_7: document.getElementById("character-spell-slots-section").style.display !== "none" && document.getElementById("character-slots-7").value
             ? Number(document.getElementById("character-slots-7").value)
             : null,
-        spell_slots_8: document.getElementById("character-slots-8").value
+        spell_slots_8: document.getElementById("character-spell-slots-section").style.display !== "none" && document.getElementById("character-slots-8").value
             ? Number(document.getElementById("character-slots-8").value)
             : null,
-        spell_slots_9: document.getElementById("character-slots-9").value
+        spell_slots_9: document.getElementById("character-spell-slots-section").style.display !== "none" && document.getElementById("character-slots-9").value
             ? Number(document.getElementById("character-slots-9").value)
             : null,
         notes: document.getElementById("character-notes").value || null
@@ -974,6 +1073,7 @@ document.getElementById("character-form").addEventListener("submit", async (e) =
     }
 });
 
+// Changing selected character refreshes loadout panel
 document.getElementById("loadout-character-select").addEventListener("change", async () => {
     resetSpellSearch();
     resetEquipmentSearch();
@@ -989,6 +1089,7 @@ document.getElementById("loadout-character-select").addEventListener("change", a
     await loadCharacterLoadout(characterId);
 });
 
+// Debounced spell search reduces API calls while typing
 document.getElementById("spell-search-input").addEventListener("input", (e) => {
     const query = e.target.value;
 
@@ -1008,6 +1109,7 @@ document.getElementById("spell-search-input").addEventListener("input", (e) => {
     }, 250);
 });
 
+// Debounced equipment search reduces API calls while typing
 document.getElementById("equipment-search-input").addEventListener("input", (e) => {
     const query = e.target.value;
 
@@ -1027,6 +1129,12 @@ document.getElementById("equipment-search-input").addEventListener("input", (e) 
     }, 250);
 });
 
+// Class change immediately updates spell slot visibility
+document.getElementById("character-class-name").addEventListener("change", () => {
+    updateCharacterSpellSlotVisibility();
+});
+
+// Click-away handler closes autocomplete panels
 document.addEventListener("click", (e) => {
     const spellAutocomplete = document.getElementById("spell-autocomplete");
     const spellInput = document.getElementById("spell-search-input");
@@ -1041,6 +1149,7 @@ document.addEventListener("click", (e) => {
     }
 });
 
+// Submit selected spell to character loadout
 document.getElementById("character-spell-form").addEventListener("submit", async (e) => {
     e.preventDefault();
 
@@ -1072,6 +1181,7 @@ document.getElementById("character-spell-form").addEventListener("submit", async
     }
 });
 
+// Submit selected equipment to character loadout
 document.getElementById("character-equipment-form").addEventListener("submit", async (e) => {
     e.preventDefault();
 
@@ -1103,9 +1213,11 @@ document.getElementById("character-equipment-form").addEventListener("submit", a
     }
 });
 
+// Cancel buttons restore forms to create state
 document.getElementById("session-cancel-btn").addEventListener("click", resetSessionForm);
 document.getElementById("character-cancel-btn").addEventListener("click", resetCharacterForm);
 
+// Initial page bootstrap: load all data required for dashboard view
 async function init() {
     await loadCampaign();
     await loadClassOptions();

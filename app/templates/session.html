@@ -4,14 +4,17 @@
 
 {% block content %}
 
+<!-- Session page for viewing session details and managing encounters -->
 <div id="session-page" data-session-id="{{ session_id }}">
 
+<!-- Session metadata loaded from API -->
 <section class="card">
     <h2 id="session-title">Session</h2>
     <p id="session-date" class="muted"></p>
     <p id="session-notes" class="muted"></p>
 </section>
 
+<!-- Encounter CRUD section for this session -->
 <section class="card">
     <h2>Encounters</h2>
 
@@ -26,7 +29,7 @@
         <input id="encounter-expected-difficulty" placeholder="Expected difficulty" />
         <textarea id="encounter-notes-input" placeholder="Encounter notes"></textarea>
 
-
+        <!-- Toggle determines whether encounter is manual or simulation-driven -->
         <label class="toggle-card" for="encounter-is-simulated">
             <input id="encounter-is-simulated" type="checkbox" class="toggle-input" />
             <span class="toggle-switch">
@@ -50,13 +53,16 @@
 
 <script>
 
+// Session identifier is provided by server-rendered template
 const sessionId = Number(
     document.getElementById("session-page").dataset.sessionId
 );
 
+// Local cache supports edit mode and quick lookup by id
 let encountersCache = [];
 let editingEncounterId = null;
 
+// Generic JSON API helper with centralised error handling
 async function api(path, options = {}) {
 
     const response = await fetch(path, {
@@ -78,6 +84,7 @@ async function api(path, options = {}) {
     return response.json();
 }
 
+// Load session title/date/notes for top section
 async function loadSession() {
 
     const session = await api(`/api/v1/sessions/${sessionId}`);
@@ -93,6 +100,7 @@ async function loadSession() {
 
 }
 
+// Escape values before injecting into innerHTML
 function escapeHtml(value) {
     return String(value ?? "")
         .replaceAll("&", "&amp;")
@@ -102,6 +110,7 @@ function escapeHtml(value) {
         .replaceAll("'", "&#039;");
 }
 
+// Load and render all encounters for this session
 async function loadEncounters() {
 
     const encounters =
@@ -127,6 +136,7 @@ async function loadEncounters() {
 
         div.className = "item";
 
+        // Simulated encounters display simulation status instead of normal label
         const simulationText = e.is_simulated
             ? `Simulated | ${escapeHtml(e.simulation_status || "PENDING")}`
             : "Normal encounter";
@@ -149,6 +159,7 @@ async function loadEncounters() {
     }
 }
 
+// Populate encounter form with an existing encounter for edit workflow
 function startEditEncounter(encounterId) {
     const encounter = encountersCache.find(e => e.id === encounterId);
     if (!encounter) return;
@@ -166,6 +177,7 @@ function startEditEncounter(encounterId) {
     document.getElementById("encounter-cancel-btn").style.display = "inline-block";
 }
 
+// Reset encounter form back to create mode
 function resetEncounterForm() {
     editingEncounterId = null;
 
@@ -178,6 +190,7 @@ function resetEncounterForm() {
     document.getElementById("encounter-cancel-btn").style.display = "none";
 }
 
+// Delete selected encounter and refresh rendered list
 async function deleteEncounter(encounterId) {
     const e = encountersCache.find(en => en.id === encounterId);
     const encounterLabel = e?.name || `encounter ${encounterId}`;
@@ -201,6 +214,7 @@ async function deleteEncounter(encounterId) {
     }
 }
 
+// Form handles both encounter creation and update depending on edit state
 document.getElementById("encounter-form").addEventListener("submit", async (e) => {
     e.preventDefault();
 
@@ -231,10 +245,12 @@ document.getElementById("encounter-form").addEventListener("submit", async (e) =
     }
 });
 
+// Cancel button restores create mode
 document
 .getElementById("encounter-cancel-btn")
 .addEventListener("click", resetEncounterForm);
 
+// Initial page bootstrap
 async function init() {
     await loadSession();
     await loadEncounters();
