@@ -1,166 +1,170 @@
 from fastapi import HTTPException
 from sqlalchemy.orm import Session as DbSession
 
-from app.models.encounter_participant import EncounterParticipant
-from app.models.event import Event
-from app.repositories.event_repo import EventRepo
+from app.models.encounter import Encounter
+from app.repositories.event_repo import event_repo
+from app.repositories.participant_repo import ParticipantRepo
+from app.schemas.event import EventCreate, EventUpdate
+from app.services.action_resolution_service import ActionResolutionService
+from app.services.spell_dataset import SpellDatasetService
 
 
 class EventService:
-    def __init__(self) -> None:
-        self.event_repo = EventRepo()
+    def __init__(self):
+        self.participant_repo = ParticipantRepo()
 
     def create_event(
         self,
         db: DbSession,
-        *,
         encounter_id: int,
-        kind: str,
-        source_participant_id: int | None,
-        target_participant_id: int | None,
-        amount: int | None,
-        spell_slots_consumed: int | None,
-        detail: str | None,
-    ) -> Event:
-        normalized_kind = kind.upper()
+        payload: EventCreate,
+    ):
+        encounter = db.get(Encounter, encounter_id)
+        if not encounter:
+            raise HTTPException(status_code=404, detail="Encounter not found")
 
-        self._validate_event_payload(
-            normalized_kind,
-            amount,
-            spell_slots_consumed,
+        source = None
+        if payload.source_participant_id is not None:
+            source = self.participant_repo.get(db, payload.source_participant_id)
+            if not source or source.encounter_id != encounter_id:
+                raise HTTPException(status_code=400, detail="Invalid source participant")
+
+        target = None
+        if payload.target_participant_id is not None:
+            target = self.participant_repo.get(db, payload.target_participant_id)
+            if not target or target.encounter_id != encounter_id:
+                raise HTTPException(status_code=400, detail="Invalid target participant")
+
+        action_name_snapshot, action_description_snapshot = (
+            ActionResolutionService.resolve_action_snapshot(
+                action_type=payload.action_type,
+                action_ref=payload.action_ref,
+                source_monster_index=getattr(source, "monster_index", None) if source else None,
+            )
         )
 
-        event = self.event_repo.create(
+        self._apply_event_effects(
+            source=source,
+            target=target,
+            kind=payload.kind,
+            amount=payload.amount,
+            action_type=payload.action_type,
+            action_ref=payload.action_ref,
+        )
+
+        return event_repo.create(
             db,
             encounter_id=encounter_id,
-            kind=normalized_kind,
+            kind=payload.kind,
+            source_participant_id=payload.source_participant_id,
+            target_participant_id=payload.target_participant_id,
+            amount=payload.amount,
+            action_type=payload.action_type,
+            action_ref=payload.action_ref,
+            action_name_snapshot=action_name_snapshot,
+            action_description_snapshot=action_description_snapshot,
+            detail=payload.detail,
+        )
+
+    def update_event(
+        self,
+        db: DbSession,
+        event_id: int,
+        payload: EventUpdate,
+    ):
+        event = event_repo.get(db, event_id)
+        if not event:
+            raise HTTPException(status_code=404, detail="Event not found")
+
+        encounter_id = event.encounter_id
+
+        kind = payload.kind if payload.kind is not None else event.kind
+        source_participant_id = (
+            payload.source_participant_id
+            if payload.source_participant_id is not None
+            else event.source_participant_id
+        )
+        target_participant_id = (
+            payload.target_participant_id
+            if payload.target_participant_id is not None
+            else event.target_participant_id
+        )
+        amount = payload.amount if payload.amount is not None else event.amount
+        action_type = payload.action_type if payload.action_type is not None else event.action_type
+        action_ref = payload.action_ref if payload.action_ref is not None else event.action_ref
+        detail = payload.detail if payload.detail is not None else event.detail
+
+        source = None
+        if source_participant_id is not None:
+            source = self.participant_repo.get(db, source_participant_id)
+            if not source or source.encounter_id != encounter_id:
+                raise HTTPException(status_code=400, detail="Invalid source participant")
+
+        target = None
+        if target_participant_id is not None:
+            target = self.participant_repo.get(db, target_participant_id)
+            if not target or target.encounter_id != encounter_id:
+                raise HTTPException(status_code=400, detail="Invalid target participant")
+
+        action_name_snapshot, action_description_snapshot = (
+            ActionResolutionService.resolve_action_snapshot(
+                action_type=action_type,
+                action_ref=action_ref,
+                source_monster_index=getattr(source, "monster_index", None) if source else None,
+            )
+        )
+
+        return event_repo.update(
+            db,
+            event,
+            kind=kind,
             source_participant_id=source_participant_id,
             target_participant_id=target_participant_id,
             amount=amount,
-            spell_slots_consumed=spell_slots_consumed,
+            action_type=action_type,
+            action_ref=action_ref,
+            action_name_snapshot=action_name_snapshot,
+            action_description_snapshot=action_description_snapshot,
             detail=detail,
         )
 
-        self.apply_event_side_effects(db, event)
-        return event
-
-    def _validate_event_payload(
+    def _apply_event_effects(
         self,
+        *,
+        source,
+        target,
         kind: str,
         amount: int | None,
-        spell_slots_consumed: int | None,
+        action_type: str | None,
+        action_ref: str | None,
     ) -> None:
-        if kind in {"DAMAGE", "HEAL"} and amount is None:
-            raise HTTPException(
-                status_code=400,
-                detail=f"{kind} events require an amount",
-            )
+        if kind == "DAMAGE" and target and amount is not None:
+            current_hp = target.current_hp or 0
+            target.current_hp = max(0, current_hp - amount)
 
-        if kind == "SPELL" and amount is not None:
-            raise HTTPException(
-                status_code=400,
-                detail="SPELL events should not include an amount; use DAMAGE or HEAL for numeric spell effects",
-            )
+        elif kind == "HEAL" and target and amount is not None:
+            current_hp = target.current_hp or 0
+            max_hp = target.max_hp or 0
+            target.current_hp = min(max_hp, current_hp + amount)
 
-        if kind not in {"DAMAGE", "HEAL", "SPELL", "MISC"}:
-            raise HTTPException(
-                status_code=400,
-                detail="Invalid event kind",
-            )
+        if source and action_type == "spell" and action_ref:
+            try:
+                spell = SpellDatasetService.get_spell(action_ref)
+            except Exception:
+                raise HTTPException(status_code=404, detail="Spell not found in dataset")
 
-        if spell_slots_consumed is not None and spell_slots_consumed < 0:
-            raise HTTPException(
-                status_code=400,
-                detail="spell_slots_consumed cannot be negative",
-            )
+            level = spell.get("level")
+            if level is None:
+                raise HTTPException(status_code=400, detail="Spell level missing from dataset")
 
-    def apply_event_side_effects(self, db: DbSession, event: Event) -> None:
-        kind = event.kind.upper()
+            if level > 0:
+                field_name = f"spell_slots_{level}"
+                current_slots = getattr(source, field_name, 0) or 0
 
-        if kind == "DAMAGE":
-            self._apply_damage(db, event.target_participant_id, event.amount)
-            self._apply_spell_cost(db, event.source_participant_id, event.spell_slots_consumed)
+                if current_slots <= 0:
+                    raise HTTPException(
+                        status_code=400,
+                        detail=f"No spell slots remaining for level {level}",
+                    )
 
-        elif kind == "HEAL":
-            self._apply_heal(db, event.target_participant_id, event.amount)
-            self._apply_spell_cost(db, event.source_participant_id, event.spell_slots_consumed)
-
-        elif kind == "SPELL":
-            self._apply_spell_cost(db, event.source_participant_id, event.spell_slots_consumed)
-
-    def _get_participant(
-        self,
-        db: DbSession,
-        participant_id: int | None,
-    ) -> EncounterParticipant | None:
-        if participant_id is None:
-            return None
-        return db.get(EncounterParticipant, participant_id)
-
-    def _apply_damage(
-        self,
-        db: DbSession,
-        target_participant_id: int | None,
-        amount: int | None,
-    ) -> None:
-        if target_participant_id is None or amount is None:
-            return
-
-        participant = self._get_participant(db, target_participant_id)
-        if participant is None or participant.current_hp is None:
-            return
-
-        participant.current_hp = max(0, participant.current_hp - amount)
-        db.commit()
-        db.refresh(participant)
-
-    def _apply_heal(
-        self,
-        db: DbSession,
-        target_participant_id: int | None,
-        amount: int | None,
-    ) -> None:
-        if target_participant_id is None or amount is None:
-            return
-
-        participant = self._get_participant(db, target_participant_id)
-        if participant is None or participant.current_hp is None:
-            return
-
-        new_hp = participant.current_hp + amount
-        if participant.max_hp is not None:
-            new_hp = min(new_hp, participant.max_hp)
-
-        participant.current_hp = new_hp
-        db.commit()
-        db.refresh(participant)
-
-    def _apply_spell_cost(
-        self,
-        db: DbSession,
-        source_participant_id: int | None,
-        spell_slots_consumed: int | None,
-    ) -> None:
-        if source_participant_id is None or spell_slots_consumed is None or spell_slots_consumed <= 0:
-            return
-
-        participant = self._get_participant(db, source_participant_id)
-        if participant is None:
-            return
-
-        remaining = spell_slots_consumed
-
-        for attr in ["spell_slots_1", "spell_slots_2", "spell_slots_3"]:
-            current = getattr(participant, attr)
-            if current is None or current <= 0:
-                continue
-
-            used_here = min(current, remaining)
-            setattr(participant, attr, current - used_here)
-            remaining -= used_here
-
-            if remaining == 0:
-                break
-
-        db.commit()
-        db.refresh(participant)
+                setattr(source, field_name, current_slots - 1)

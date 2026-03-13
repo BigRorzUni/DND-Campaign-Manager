@@ -10,6 +10,9 @@ class CharacterCreate(BaseModel):
     current_hp: int | None = Field(default=None, ge=0)
     armor_class: int | None = Field(default=None, ge=0)
 
+    spell_indices: list[str] = Field(default_factory=list)
+    equipment_indices: list[str] = Field(default_factory=list)
+
     spell_slots_1: int | None = Field(default=None, ge=0)
     spell_slots_2: int | None = Field(default=None, ge=0)
     spell_slots_3: int | None = Field(default=None, ge=0)
@@ -31,6 +34,9 @@ class CharacterUpdate(BaseModel):
     max_hp: int | None = Field(default=None, ge=0)
     current_hp: int | None = Field(default=None, ge=0)
     armor_class: int | None = Field(default=None, ge=0)
+
+    spell_indices: list[str] | None = None
+    equipment_indices: list[str] | None = None
 
     spell_slots_1: int | None = Field(default=None, ge=0)
     spell_slots_2: int | None = Field(default=None, ge=0)
@@ -55,6 +61,9 @@ class CharacterOut(BaseModel):
     max_hp: int | None
     current_hp: int | None
     armor_class: int | None
+
+    spell_indices: list[str]
+    equipment_indices: list[str]
 
     spell_slots_1: int | None
     spell_slots_2: int | None

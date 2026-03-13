@@ -14,7 +14,6 @@ from app.schemas.participant import (
 )
 from app.services.ai_review_service import AiReviewService
 from app.services.spell_dataset import SpellDatasetService
-from app.repositories.character_spell_repo import CharacterSpellRepo
 from app.services.monster_dataset import MonsterDatasetService
 from app.repositories.participant_action_repo import ParticipantActionRepo
 

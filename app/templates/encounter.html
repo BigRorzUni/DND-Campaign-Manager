@@ -63,49 +63,70 @@
             </div>
         </form>
         
-        <h3 id="custom-participant-form-heading">Add Other Participant</h3>
-<form id="custom-participant-form">
-    <input type="hidden" id="custom-participant-edit-id" />
+    <h3 id="custom-participant-form-heading">Add Enemy Participant</h3>
+    <form id="custom-participant-form">
+        <input type="hidden" id="custom-participant-edit-id" />
 
-    <label for="monster-search-input">Import from monster dataset</label>
-    <div style="position: relative;">
-        <input
-            id="monster-search-input"
-            type="text"
-            placeholder="Start typing a monster name..."
-            autocomplete="off"
-        />
-        <input type="hidden" id="selected-monster-index" />
-        <div
-            id="monster-autocomplete"
-            style="display:none; position:absolute; top:100%; left:0; right:0; z-index:10; background:white; color:black; border:1px solid #ccc; border-top:none; max-height:240px; overflow-y:auto;"
-        ></div>
-    </div>
+        <label for="monster-search-input">Import from monster dataset</label>
+        <div style="position: relative;">
+            <input
+                id="monster-search-input"
+                type="text"
+                placeholder="Start typing a monster name..."
+                autocomplete="off"
+                required
+            />
+            <input type="hidden" id="selected-monster-index" />
+            <div
+                id="monster-autocomplete"
+                style="display:none; position:absolute; top:100%; left:0; right:0; z-index:10; background:white; color:black; border:1px solid #ccc; border-top:none; max-height:240px; overflow-y:auto;"
+            ></div>
+        </div>
 
-    <div id="monster-preview" class="muted"></div>
+        <div id="monster-preview" class="muted"></div>
 
-    <input id="custom-participant-name" placeholder="Name" required />
-    <input id="custom-participant-class-name" placeholder="Class / type" />
-    <input id="custom-participant-level" type="number" placeholder="Level (optional)" />
-    <input id="custom-participant-max-hp" type="number" placeholder="Max HP" />
-    <input id="custom-participant-current-hp" type="number" placeholder="Current HP" />
-    <input id="custom-participant-ac" type="number" placeholder="Armour Class" />
+        <div id="custom-imported-fields" style="display:none;">
+            <input id="custom-participant-name" placeholder="Name" required />
+            <input id="custom-participant-class-name" placeholder="Class / type" />
+            <input id="custom-participant-max-hp" type="number" placeholder="Max HP" />
+            <input id="custom-participant-current-hp" type="number" placeholder="Current HP" />
+            <input id="custom-participant-ac" type="number" placeholder="Armour Class" />
 
-    <input id="custom-participant-slots-1" type="number" placeholder="Spell Slots L1" />
-    <input id="custom-participant-slots-2" type="number" placeholder="Spell Slots L2" />
-    <input id="custom-participant-slots-3" type="number" placeholder="Spell Slots L3" />
-    <input id="custom-participant-slots-4" type="number" placeholder="Spell Slots L4" />
-    <input id="custom-participant-slots-5" type="number" placeholder="Spell Slots L5" />
-    <input id="custom-participant-slots-6" type="number" placeholder="Spell Slots L6" />
-    <input id="custom-participant-slots-7" type="number" placeholder="Spell Slots L7" />
-    <input id="custom-participant-slots-8" type="number" placeholder="Spell Slots L8" />
-    <input id="custom-participant-slots-9" type="number" placeholder="Spell Slots L9" />
+            <div id="custom-participant-slot-row-1" style="display:none;">
+                <input id="custom-participant-slots-1" type="number" placeholder="Spell Slots L1" />
+            </div>
+            <div id="custom-participant-slot-row-2" style="display:none;">
+                <input id="custom-participant-slots-2" type="number" placeholder="Spell Slots L2" />
+            </div>
+            <div id="custom-participant-slot-row-3" style="display:none;">
+                <input id="custom-participant-slots-3" type="number" placeholder="Spell Slots L3" />
+            </div>
+            <div id="custom-participant-slot-row-4" style="display:none;">
+                <input id="custom-participant-slots-4" type="number" placeholder="Spell Slots L4" />
+            </div>
+            <div id="custom-participant-slot-row-5" style="display:none;">
+                <input id="custom-participant-slots-5" type="number" placeholder="Spell Slots L5" />
+            </div>
+            <div id="custom-participant-slot-row-6" style="display:none;">
+                <input id="custom-participant-slots-6" type="number" placeholder="Spell Slots L6" />
+            </div>
+            <div id="custom-participant-slot-row-7" style="display:none;">
+                <input id="custom-participant-slots-7" type="number" placeholder="Spell Slots L7" />
+            </div>
+            <div id="custom-participant-slot-row-8" style="display:none;">
+                <input id="custom-participant-slots-8" type="number" placeholder="Spell Slots L8" />
+            </div>
+            <div id="custom-participant-slot-row-9" style="display:none;">
+                <input id="custom-participant-slots-9" type="number" placeholder="Spell Slots L9" />
+            </div>
 
-    <textarea id="custom-participant-notes" placeholder="Notes"></textarea>
+            <textarea id="custom-participant-notes" placeholder="Notes"></textarea>
+        </div>
 
-    <button type="submit" id="custom-participant-submit-btn">Add Other Participant</button>
-    <button type="button" id="custom-participant-cancel-btn" style="display:none;">Cancel Edit</button>
-</form>
+        <button type="submit" id="custom-participant-submit-btn">Add Enemy Participant</button>
+        <button type="button" id="custom-participant-cancel-btn" style="display:none;">Cancel Edit</button>
+    </form>
+    </section>
 
     <section class="card">
         <h2>Encounter Review</h2>
@@ -141,88 +162,80 @@
         <h2>Events</h2>
         <div id="events"></div>
 
-        <h3 id="event-form-heading">Create Event</h3>
-        <form id="event-form">
-            <input type="hidden" id="event-id">
+    <h3 id="event-form-heading">Create Event</h3>
+    <form id="event-form">
+        <input type="hidden" id="event-id">
 
-            <select id="event-kind" required>
-                <option value="">Select event kind</option>
-                <option value="DAMAGE">DAMAGE</option>
-                <option value="HEAL">HEAL</option>
-                <option value="SPELL">SPELL</option>
-                <option value="MISC">MISC</option>
-            </select>
+        <label for="event-source-select">Source</label>
+        <select id="event-source-select">
+            <option value="">Select source</option>
+        </select>
 
-            <label for="event-source-select">Source</label>
-            <select id="event-source-select">
-                <option value="">Select source</option>
-            </select>
+        <label for="event-action-select">Action</label>
+        <select id="event-action-select">
+            <option value="">Select action</option>
+        </select>
 
-            <label for="event-target-select">Target</label>
-            <select id="event-target-select">
-                <option value="">Select target</option>
-            </select>
+        <div id="action-description" class="muted"></div>
 
-            <div id="amount-fields" style="display: none;">
-                <input id="event-amount" type="number" placeholder="Amount" />
-            </div>
+        <label for="event-target-select">Target</label>
+        <select id="event-target-select">
+            <option value="">Self / No target</option>
+        </select>
 
-            <div id="spell-select-container">
-                <label for="event-spell-mode">Spell</label>
+        <div id="event-amount-container" style="display:none;">
+            <label for="event-amount" id="event-amount-label">Amount</label>
+            <input id="event-amount" type="number" min="0" placeholder="Amount" />
+        </div>
 
-                <div id="event-party-spell-container" style="display:none;">
-                    <select id="event-spell">
-                        <option value="">No spell</option>
-                    </select>
-                </div>
+        <div id="custom-action-fields" style="display:none;">
+            <label for="custom-damage">Damage</label>
+            <input id="custom-damage" type="number" min="0" placeholder="Damage" />
 
-                <div id="event-npc-spell-container" style="display:none; position: relative;">
-                    <input
-                        id="event-spell-search-input"
-                        type="text"
-                        placeholder="Start typing a spell name..."
-                        autocomplete="off"
-                    />
-                    <input type="hidden" id="event-selected-spell-index" />
-                    <div
-                        id="event-spell-autocomplete"
-                        style="display:none; position:absolute; top:100%; left:0; right:0; z-index:10; background:white; border:1px solid #ccc; border-top:none; max-height:240px; overflow-y:auto;"
-                    ></div>
-                </div>
-            </div>
+            <label for="custom-healing">Healing</label>
+            <input id="custom-healing" type="number" min="0" placeholder="Healing" />
 
-            <div id="spell-description" class="muted"></div>
+            <label for="event-detail-custom">Note</label>
+            <textarea id="event-detail-custom" placeholder="Detail"></textarea>
+        </div>
 
-            <textarea id="event-detail" placeholder="Detail"></textarea>
-            <button type="submit" id="event-submit-btn">Create Event</button>
-            <button type="button" id="event-cancel-btn" style="display:none;">Cancel Edit</button>
-        </form>
+        <div id="standard-note-fields">
+            <label for="event-detail-standard">Note</label>
+            <textarea id="event-detail-standard" placeholder="Detail"></textarea>
+        </div>
+
+        <button type="submit" id="event-submit-btn">Create Event</button>
+        <button type="button" id="event-cancel-btn" style="display:none;">Cancel Edit</button>
+    </form>
     </section>
 
 </div>
 
 <script>
+// ----------------------------- Page state -----------------------------
+
 let participantsCache = [];
 let eventsCache = [];
-let editingEventId = null;
+let characterOptionsCache = [];
+let participantActionsCache = [];
 
+let editingEventId = null;
 let editingParticipantId = null;
 let editingParticipantType = null;
-
-let npcSpellSearchResultsCache = [];
-let npcSpellSearchDebounceHandle = null;
 
 let monsterSearchResultsCache = [];
 let monsterSearchDebounceHandle = null;
 let selectedMonsterDetail = null;
 
+let campaignId = null;
+
 const encounterId = Number(
     document.getElementById("encounter-page").dataset.encounterId
 );
 
-let campaignId = null;
-let characterOptionsCache = [];
+// ---------------------------- API helpers -----------------------------
 
+// Small fetch wrapper for JSON APIs.
 async function api(path, options = {}) {
     const response = await fetch(path, {
         headers: { "Content-Type": "application/json" },
@@ -242,6 +255,7 @@ async function api(path, options = {}) {
     return response.json();
 }
 
+// Escape values before injecting into innerHTML.
 function escapeHtml(value) {
     return String(value ?? "")
         .replaceAll("&", "&amp;")
@@ -250,6 +264,8 @@ function escapeHtml(value) {
         .replaceAll('"', "&quot;")
         .replaceAll("'", "&#039;");
 }
+
+// ---------------------- Party participant helpers ---------------------
 
 function hidePartyCharacterFields() {
     document.getElementById("party-character-extra-fields").style.display = "none";
@@ -262,107 +278,6 @@ function hidePartyCharacterFields() {
 
         if (row) row.style.display = "none";
         if (input) input.value = "";
-    }
-}
-
-async function searchMonstersAutocomplete(query) {
-    const trimmed = query.trim();
-    const autocomplete = document.getElementById("monster-autocomplete");
-    const preview = document.getElementById("monster-preview");
-
-    document.getElementById("selected-monster-index").value = "";
-    selectedMonsterDetail = null;
-    preview.textContent = "";
-
-    if (!trimmed) {
-        monsterSearchResultsCache = [];
-        autocomplete.innerHTML = "";
-        autocomplete.style.display = "none";
-        return;
-    }
-
-    const results = await api(`/api/v1/monsters?q=${encodeURIComponent(trimmed)}`);
-    monsterSearchResultsCache = results;
-
-    if (!results.length) {
-        autocomplete.innerHTML = `<div style="padding:8px;" class="muted">No matching monsters</div>`;
-        autocomplete.style.display = "block";
-        return;
-    }
-
-    autocomplete.innerHTML = results.slice(0, 12).map(monster => `
-        <div
-            class="monster-autocomplete-item"
-            data-index="${escapeHtml(monster.index)}"
-            style="padding:8px; border-bottom:1px solid #eee; cursor:pointer;"
-        >
-            <strong>${escapeHtml(monster.name)}</strong><br>
-            <span class="muted">${escapeHtml(monster.index)}</span>
-        </div>
-    `).join("");
-
-    autocomplete.style.display = "block";
-
-    for (const item of autocomplete.querySelectorAll(".monster-autocomplete-item")) {
-        item.addEventListener("click", async () => {
-            const monsterIndex = item.dataset.index;
-            const monster = monsterSearchResultsCache.find(m => m.index === monsterIndex);
-
-            document.getElementById("selected-monster-index").value = monsterIndex;
-            document.getElementById("monster-search-input").value = monster ? monster.name : monsterIndex;
-            autocomplete.style.display = "none";
-
-            await loadSelectedMonsterPreview(monsterIndex);
-        });
-    }
-}
-
-async function loadSelectedMonsterPreview(monsterIndex) {
-    const preview = document.getElementById("monster-preview");
-
-    if (!monsterIndex) {
-        selectedMonsterDetail = null;
-        preview.textContent = "";
-        return;
-    }
-
-    const monster = await api(`/api/v1/monsters/${encodeURIComponent(monsterIndex)}`);
-    selectedMonsterDetail = monster;
-
-    const armorClass = Array.isArray(monster.armor_class)
-        ? monster.armor_class[0]?.value ?? ""
-        : monster.armor_class ?? "";
-
-    const typeText = typeof monster.type === "string"
-        ? monster.type
-        : monster.type?.name || "";
-
-    preview.textContent =
-        `${monster.name}` +
-        `${typeText ? ` | ${typeText}` : ""}` +
-        `${monster.hit_points !== undefined ? ` | HP ${monster.hit_points}` : ""}` +
-        `${armorClass !== "" ? ` | AC ${armorClass}` : ""}`;
-
-    autofillMonsterFields(monster);
-}
-
-function autofillMonsterFields(monster) {
-    const armorClass = Array.isArray(monster.armor_class)
-        ? monster.armor_class[0]?.value ?? null
-        : monster.armor_class ?? null;
-
-    const typeText = typeof monster.type === "string"
-        ? monster.type
-        : monster.type?.name || null;
-
-    document.getElementById("custom-participant-name").value = monster.name || "";
-    document.getElementById("custom-participant-class-name").value = typeText || "";
-    document.getElementById("custom-participant-max-hp").value = monster.hit_points ?? "";
-    document.getElementById("custom-participant-current-hp").value = monster.hit_points ?? "";
-    document.getElementById("custom-participant-ac").value = armorClass ?? "";
-
-    if (!document.getElementById("custom-participant-notes").value) {
-        document.getElementById("custom-participant-notes").value = "Imported from monster dataset";
     }
 }
 
@@ -415,97 +330,367 @@ async function handlePartyCharacterSelection() {
     showPartyCharacterFieldsFor(character);
 }
 
-function getParticipantSlotValue(participant, level) {
-    return participant[`spell_slots_${level}`] ?? 0;
+// ------------------------ Monster import helpers ----------------------
+
+function setMonsterReadonlyField(id, isReadonly) {
+    const element = document.getElementById(id);
+    if (!element) return;
+    element.readOnly = isReadonly;
 }
 
-function getAvailableSpellLevels(participant) {
-    const levels = [];
-    for (let level = 1; level <= 9; level += 1) {
-        if (getParticipantSlotValue(participant, level) > 0) {
-            levels.push(level);
+function setMonsterReadonlyFields(isReadonly) {
+    setMonsterReadonlyField("custom-participant-ac", isReadonly);
+
+    for (let level = 1; level <= 9; level++) {
+        setMonsterReadonlyField(`custom-participant-slots-${level}`, isReadonly);
+    }
+}
+
+function setMonsterImportedFieldsVisible(visible) {
+    const container = document.getElementById("custom-imported-fields");
+    if (container) {
+        container.style.display = visible ? "block" : "none";
+    }
+}
+
+function extractMonsterArmorClass(monster) {
+    const ac = monster.armor_class;
+
+    if (typeof ac === "number") {
+        return ac;
+    }
+
+    if (Array.isArray(ac) && ac.length > 0) {
+        const values = ac
+            .map(entry => typeof entry === "number" ? entry : entry?.value)
+            .filter(value => value !== null && value !== undefined);
+
+        if (values.length > 0) {
+            return Math.max(...values);
         }
     }
-    return levels;
+
+    return null;
 }
 
-function participantHasAnySpellSlots(participant) {
-    return getAvailableSpellLevels(participant).length > 0;
-}
-
-function participantCanCastSpellLevel(participant, spellLevel) {
-    if (spellLevel === 0) return true;
-    return getParticipantSlotValue(participant, spellLevel) > 0;
-}
-
-function getSelectedSourceParticipant() {
-    const sourceId = document.getElementById("event-source-select").value
-        ? Number(document.getElementById("event-source-select").value)
-        : null;
-
-    if (!sourceId) return null;
-    return participantsCache.find(p => p.id === sourceId) || null;
-}
-
-function isPartySourceParticipant(participant) {
-    return !!(participant && participant.character_id);
-}
-
-function getSelectedSpellIndex() {
-    const participant = getSelectedSourceParticipant();
-
-    if (!participant) return null;
-
-    if (isPartySourceParticipant(participant)) {
-        return document.getElementById("event-spell").value || null;
+function extractMonsterSpellcasting(monster) {
+    if (!Array.isArray(monster.special_abilities)) {
+        return null;
     }
 
-    return document.getElementById("event-selected-spell-index").value || null;
+    for (const ability of monster.special_abilities) {
+        if (ability && ability.spellcasting) {
+            return ability.spellcasting;
+        }
+    }
+
+    return null;
 }
 
-function setSpellInputModeForParticipant(participant) {
-    const partyContainer = document.getElementById("event-party-spell-container");
-    const npcContainer = document.getElementById("event-npc-spell-container");
 
-    if (!participant) {
-        partyContainer.style.display = "none";
-        npcContainer.style.display = "none";
+async function searchMonstersAutocomplete(query) {
+    const trimmed = query.trim();
+    const autocomplete = document.getElementById("monster-autocomplete");
+    const preview = document.getElementById("monster-preview");
+
+    document.getElementById("selected-monster-index").value = "";
+    selectedMonsterDetail = null;
+    preview.textContent = "";
+
+    if (!trimmed) 
+    {
+        monsterSearchResultsCache = [];
+        autocomplete.innerHTML = "";
+        autocomplete.style.display = "none";
+
+        document.getElementById("selected-monster-index").value = "";
+        selectedMonsterDetail = null;
+        preview.textContent = "";
+
+        setMonsterImportedFieldsVisible(false);
+
         return;
     }
 
-    if (isPartySourceParticipant(participant)) {
-        partyContainer.style.display = "block";
-        npcContainer.style.display = "none";
-    } else {
-        partyContainer.style.display = "none";
-        npcContainer.style.display = "block";
+    const results = await api(`/api/v1/monsters?q=${encodeURIComponent(trimmed)}`);
+    monsterSearchResultsCache = results;
+
+    if (!results.length) {
+        autocomplete.innerHTML = `<div style="padding:8px;" class="muted">No matching monsters</div>`;
+        autocomplete.style.display = "block";
+        return;
+    }
+
+    autocomplete.innerHTML = results.slice(0, 12).map(monster => `
+        <div
+            class="monster-autocomplete-item"
+            data-index="${escapeHtml(monster.index)}"
+            style="padding:8px; border-bottom:1px solid #eee; cursor:pointer;"
+        >
+            <strong>${escapeHtml(monster.name)}</strong><br>
+            <span class="muted">${escapeHtml(monster.index)}</span>
+        </div>
+    `).join("");
+
+    autocomplete.style.display = "block";
+
+    for (const item of autocomplete.querySelectorAll(".monster-autocomplete-item")) {
+        item.addEventListener("click", async () => {
+            const monsterIndex = item.dataset.index;
+            const monster = monsterSearchResultsCache.find(m => m.index === monsterIndex);
+
+            document.getElementById("selected-monster-index").value = monsterIndex;
+            document.getElementById("monster-search-input").value = monster ? monster.name : monsterIndex;
+            autocomplete.style.display = "none";
+
+            await loadSelectedMonsterPreview(monsterIndex);
+        });
     }
 }
 
-function clearNpcSpellAutocomplete() {
-    document.getElementById("event-spell-search-input").value = "";
-    document.getElementById("event-selected-spell-index").value = "";
-    const autocomplete = document.getElementById("event-spell-autocomplete");
-    autocomplete.innerHTML = "";
-    autocomplete.style.display = "none";
-    npcSpellSearchResultsCache = [];
+async function loadSelectedMonsterPreview(monsterIndex) {
+    const preview = document.getElementById("monster-preview");
+
+    if (!monsterIndex) {
+        selectedMonsterDetail = null;
+        preview.textContent = "";
+        return;
+    }
+
+    const monster = await api(`/api/v1/monsters/${encodeURIComponent(monsterIndex)}`);
+    selectedMonsterDetail = monster;
+
+    const armorClass = extractMonsterArmorClass(monster);
+    const typeText = typeof monster.type === "string"
+        ? monster.type
+        : monster.type?.name || "";
+
+    const spellcasting = extractMonsterSpellcasting(monster);
+    const slotSummary = spellcasting?.slots
+        ? Object.entries(spellcasting.slots)
+            .map(([level, count]) => `L${level}:${count}`)
+            .join(", ")
+        : "";
+
+    preview.textContent =
+        `${monster.name}` +
+        `${typeText ? ` | ${typeText}` : ""}` +
+        `${monster.hit_points !== undefined ? ` | HP ${monster.hit_points}` : ""}` +
+        `${armorClass !== null && armorClass !== undefined ? ` | AC ${armorClass}` : ""}` +
+        `${slotSummary ? ` | Slots ${slotSummary}` : ""}`;
+
+    autofillMonsterFields(monster);
+    setMonsterImportedFieldsVisible(true);
 }
 
-function clearSpellSelection(message = "") {
-    const spellSelect = document.getElementById("event-spell");
-    const spellDescription = document.getElementById("spell-description");
+function autofillMonsterFields(monster) {
+    const armorClass = extractMonsterArmorClass(monster);
 
-    spellSelect.innerHTML = `<option value="">No spell</option>`;
-    clearNpcSpellAutocomplete();
-    spellDescription.textContent = message;
+    const typeText = typeof monster.type === "string"
+        ? monster.type
+        : monster.type?.name || null;
+
+    const hitPoints = monster.hit_points ?? null;
+    const spellcasting = extractMonsterSpellcasting(monster);
+    const slots = spellcasting?.slots || null;
+
+    document.getElementById("custom-participant-name").value = monster.name || "";
+    document.getElementById("custom-participant-class-name").value = typeText || "";
+    document.getElementById("custom-participant-max-hp").value = hitPoints ?? "";
+    document.getElementById("custom-participant-current-hp").value = hitPoints ?? "";
+    document.getElementById("custom-participant-ac").value = armorClass ?? "";
+
+    // Monster AC should be view-only
+    document.getElementById("custom-participant-ac").readOnly = true;
+
+    for (let level = 1; level <= 9; level++) {
+        const input = document.getElementById(`custom-participant-slots-${level}`);
+        const row = document.getElementById(`custom-participant-slot-row-${level}`);
+        if (!input || !row) continue;
+
+        if (slots && slots[String(level)] !== undefined && slots[String(level)] !== null) {
+            input.value = slots[String(level)];
+            input.readOnly = true;
+            row.style.display = "block";
+        } else {
+            input.value = "";
+            input.readOnly = true;
+            row.style.display = "none";
+        }
+    }
+
 }
+
+// ---------------------------- Common helpers --------------------------
+
+function getParticipantSlotValue(participant, level) {
+    return participant?.[`spell_slots_${level}`] ?? 0;
+}
+
+function renderRemainingSlots(participant) {
+    const parts = [];
+
+    for (let level = 1; level <= 9; level += 1) {
+        const value = getParticipantSlotValue(participant, level);
+        if (value > 0) {
+            parts.push(`Spell Slots L${level}: ${escapeHtml(value)}`);
+        }
+    }
+
+    return parts.length ? parts.join("<br>") + "<br>" : "";
+}
+
+// ----------------------------- Action UI ------------------------------
+
+function resetEventEffectFields() {
+    document.getElementById("event-amount-container").style.display = "none";
+    document.getElementById("custom-action-fields").style.display = "none";
+    document.getElementById("standard-note-fields").style.display = "block";
+
+    document.getElementById("event-amount-label").textContent = "Amount";
+    document.getElementById("event-amount").placeholder = "Amount";
+
+    document.getElementById("event-amount").value = "";
+    document.getElementById("custom-damage").value = "";
+    document.getElementById("custom-healing").value = "";
+}
+
+function getSelectedActionOption() {
+    const select = document.getElementById("event-action-select");
+    return select.options[select.selectedIndex] || null;
+}
+
+function updateActionDrivenFields() {
+    resetEventEffectFields();
+
+    const option = getSelectedActionOption();
+    if (!option || !option.value) {
+        return;
+    }
+
+    const kindHint = option.dataset.kindHint || "";
+
+    if (kindHint === "DAMAGE") {
+        document.getElementById("event-amount-container").style.display = "block";
+        document.getElementById("event-amount-label").textContent = "Damage";
+        document.getElementById("event-amount").placeholder = "Damage";
+        return;
+    }
+
+    if (kindHint === "HEAL") {
+        document.getElementById("event-amount-container").style.display = "block";
+        document.getElementById("event-amount-label").textContent = "Healing";
+        document.getElementById("event-amount").placeholder = "Healing";
+        return;
+    }
+
+    if (kindHint === "CUSTOM") {
+        document.getElementById("standard-note-fields").style.display = "none";
+        document.getElementById("custom-action-fields").style.display = "block";
+        return;
+    }
+
+    // MISC actions: no numeric amount, just note
+}
+
+function clearActionSelection(message = "") {
+    const actionSelect = document.getElementById("event-action-select");
+    const actionDescription = document.getElementById("action-description");
+
+    actionSelect.innerHTML = `<option value="">Select action</option>`;
+    actionDescription.textContent = message;
+    participantActionsCache = [];
+
+    resetEventEffectFields();
+}
+
+function getSelectedAction() {
+    const select = document.getElementById("event-action-select");
+    const option = select.options[select.selectedIndex];
+
+    if (!option || !option.value) {
+        return {
+            action_type: null,
+            action_ref: null
+        };
+    }
+
+    return {
+        action_type: option.dataset.actionType || null,
+        action_ref: option.value || null
+    };
+}
+
+function updateActionDescription() {
+    const actionSelect = document.getElementById("event-action-select");
+    const actionDescription = document.getElementById("action-description");
+
+    const option = actionSelect.options[actionSelect.selectedIndex];
+    if (!option || !option.value) {
+        actionDescription.textContent = "";
+        updateActionDrivenFields();
+        return;
+    }
+
+    const kindHint = option.dataset.kindHint || "";
+    const spellLevel = option.dataset.spellLevel || "";
+    const description = option.dataset.description || "";
+
+    actionDescription.textContent =
+        `${kindHint ? kindHint : ""}` +
+        `${spellLevel !== "" ? ` | Level ${spellLevel}` : ""}` +
+        `${description ? ` — ${description}` : ""}`;
+
+    updateActionDrivenFields();
+}
+
+async function loadActionsForParticipant(participantId, selectedActionRef = null) {
+    clearActionSelection();
+
+    if (!participantId) {
+        return;
+    }
+
+    const actions = await api(`/api/v1/encounters/${encounterId}/participants/${participantId}/actions`);
+    participantActionsCache = actions;
+
+    const actionSelect = document.getElementById("event-action-select");
+
+    if (!actions.length) {
+        document.getElementById("action-description").textContent = "No actions available.";
+        return;
+    }
+
+    for (const action of actions) {
+        const option = document.createElement("option");
+        option.value = action.action_ref;
+        option.textContent = action.available
+            ? action.name
+            : `${action.name} (Unavailable)`;
+
+        option.dataset.actionType = action.action_type || "";
+        option.dataset.description = action.description || "";
+        option.dataset.kindHint = action.kind_hint || "";
+        option.dataset.spellLevel = action.spell_level ?? "";
+        option.disabled = !action.available && action.action_type !== "custom";
+
+        actionSelect.appendChild(option);
+    }
+
+    if (selectedActionRef) {
+        actionSelect.value = selectedActionRef;
+        updateActionDescription();
+    }
+}
+
+// ----------------------------- Event form -----------------------------
 
 function populateEventParticipantSelectors() {
     const sourceSelect = document.getElementById("event-source-select");
     const targetSelect = document.getElementById("event-target-select");
 
     sourceSelect.innerHTML = `<option value="">Select source</option>`;
-    targetSelect.innerHTML = `<option value="">Select target</option>`;
+    targetSelect.innerHTML = `<option value="">No target / Self</option>`;
 
     for (const p of participantsCache) {
         const label = `${p.name} (${p.participant_type})`;
@@ -522,16 +707,93 @@ function populateEventParticipantSelectors() {
     }
 }
 
-function toggleEventFields() {
-    const kind = document.getElementById("event-kind").value;
-    const amountFields = document.getElementById("amount-fields");
+function buildEventPayload() {
+    const sourceParticipantId = document.getElementById("event-source-select").value
+        ? Number(document.getElementById("event-source-select").value)
+        : null;
 
-    if (kind === "DAMAGE" || kind === "HEAL") {
-        amountFields.style.display = "block";
-    } else {
-        amountFields.style.display = "none";
-        document.getElementById("event-amount").value = "";
+    const targetParticipantId = document.getElementById("event-target-select").value
+        ? Number(document.getElementById("event-target-select").value)
+        : null;
+
+    const selectedAction = getSelectedAction();
+    const option = getSelectedActionOption();
+
+    if (!sourceParticipantId) {
+        throw new Error("Please select a source.");
     }
+
+    if (!option || !option.value) {
+        throw new Error("Please select an action.");
+    }
+
+    const kindHint = option.dataset.kindHint || "";
+
+    if (kindHint === "CUSTOM") {
+        const customDamage = document.getElementById("custom-damage").value
+            ? Number(document.getElementById("custom-damage").value)
+            : null;
+
+        const customHealing = document.getElementById("custom-healing").value
+            ? Number(document.getElementById("custom-healing").value)
+            : null;
+
+        const note = document.getElementById("event-detail-custom").value || null;
+
+        if (customDamage !== null && customHealing !== null) {
+            throw new Error("Enter either damage or healing for a custom action, not both.");
+        }
+
+        if (customDamage !== null) {
+            return {
+                kind: "DAMAGE",
+                source_participant_id: sourceParticipantId,
+                target_participant_id: targetParticipantId,
+                amount: customDamage,
+                action_type: selectedAction.action_type,
+                action_ref: selectedAction.action_ref,
+                detail: note,
+            };
+        }
+
+        if (customHealing !== null) {
+            return {
+                kind: "HEAL",
+                source_participant_id: sourceParticipantId,
+                target_participant_id: targetParticipantId,
+                amount: customHealing,
+                action_type: selectedAction.action_type,
+                action_ref: selectedAction.action_ref,
+                detail: note,
+            };
+        }
+
+        return {
+            kind: "MISC",
+            source_participant_id: sourceParticipantId,
+            target_participant_id: targetParticipantId,
+            amount: null,
+            action_type: selectedAction.action_type,
+            action_ref: selectedAction.action_ref,
+            detail: note,
+        };
+    }
+
+    const amount = document.getElementById("event-amount").value
+        ? Number(document.getElementById("event-amount").value)
+        : null;
+
+    const note = document.getElementById("event-detail-standard").value || null;
+
+    return {
+        kind: kindHint || "MISC",
+        source_participant_id: sourceParticipantId,
+        target_participant_id: targetParticipantId,
+        amount: kindHint === "DAMAGE" || kindHint === "HEAL" ? amount : null,
+        action_type: selectedAction.action_type,
+        action_ref: selectedAction.action_ref,
+        detail: note,
+    };
 }
 
 function resetEventForm() {
@@ -544,10 +806,11 @@ function resetEventForm() {
     document.getElementById("event-submit-btn").textContent = "Create Event";
     document.getElementById("event-cancel-btn").style.display = "none";
 
-    clearSpellSelection();
-    setSpellInputModeForParticipant(null);
-    toggleEventFields();
+    clearActionSelection();
+    resetEventEffectFields();
 }
+
+// -------------------------- Participant forms -------------------------
 
 function resetParticipantForms() {
     editingParticipantId = null;
@@ -566,208 +829,31 @@ function resetParticipantForms() {
     document.getElementById("participant-submit-btn").textContent = "Add Party Character";
     document.getElementById("participant-cancel-btn").style.display = "none";
 
-    document.getElementById("custom-participant-form-heading").textContent = "Add Other Participant";
-    document.getElementById("custom-participant-submit-btn").textContent = "Add Other Participant";
+    document.getElementById("custom-participant-form-heading").textContent = "Add Enemy Participant";
+    document.getElementById("custom-participant-submit-btn").textContent = "Add Enemy Participant";
     document.getElementById("custom-participant-cancel-btn").style.display = "none";
 
     document.getElementById("monster-preview").textContent = "";
     const monsterAutocomplete = document.getElementById("monster-autocomplete");
     monsterAutocomplete.innerHTML = "";
     monsterAutocomplete.style.display = "none";
-}
 
-function renderRemainingSlots(participant) {
-    const parts = [];
+    selectedMonsterDetail = null;
+    setMonsterImportedFieldsVisible(false);
 
-    for (let level = 1; level <= 9; level += 1) {
-        const value = getParticipantSlotValue(participant, level);
-        if (value > 0) {
-            parts.push(`Spell Slots L${level}: ${escapeHtml(value)}`);
+    document.getElementById("custom-participant-ac").readOnly = false;
+
+    for (let level = 1; level <= 9; level++) {
+        const input = document.getElementById(`custom-participant-slots-${level}`);
+        const row = document.getElementById(`custom-participant-slot-row-${level}`);
+        if (input) {
+            input.readOnly = false;
+            input.value = "";
+        }
+        if (row) {
+            row.style.display = "none";
         }
     }
-
-    return parts.length ? parts.join("<br>") + "<br>" : "";
-}
-
-async function loadPartySpellsForParticipant(participant, selectedSpellIndex = null) {
-    const spellSelect = document.getElementById("event-spell");
-    const spellDescription = document.getElementById("spell-description");
-
-    spellSelect.innerHTML = `<option value="">No spell</option>`;
-    spellDescription.textContent = "";
-
-    if (!participant || !participant.character_id) {
-        return;
-    }
-
-    let spells = await api(`/api/v1/characters/${participant.character_id}/spells`);
-    spells = spells.filter(spell => participantCanCastSpellLevel(participant, spell.spell_level));
-
-    if (!spells.length) {
-        spellDescription.textContent = "No castable learnt spells available for this participant.";
-        return;
-    }
-
-    for (const spell of spells) {
-        const option = document.createElement("option");
-        option.value = spell.spell_index;
-        option.textContent = `${spell.spell_name_snapshot} (Level ${spell.spell_level})`;
-        option.dataset.name = spell.spell_name_snapshot || "";
-        option.dataset.level = spell.spell_level ?? "";
-        option.dataset.description = spell.brief_description || "";
-        spellSelect.appendChild(option);
-    }
-
-    if (selectedSpellIndex) {
-        spellSelect.value = selectedSpellIndex;
-        if (spellSelect.value === selectedSpellIndex) {
-            await updateSpellDescription(selectedSpellIndex);
-        }
-    }
-}
-
-async function searchNpcSpellsAutocomplete(query) {
-    const participant = getSelectedSourceParticipant();
-    const autocomplete = document.getElementById("event-spell-autocomplete");
-    const preview = document.getElementById("spell-description");
-
-    document.getElementById("event-selected-spell-index").value = "";
-    preview.textContent = "";
-
-    if (!participant || isPartySourceParticipant(participant)) {
-        autocomplete.innerHTML = "";
-        autocomplete.style.display = "none";
-        return;
-    }
-
-    if (!participantHasAnySpellSlots(participant)) {
-        autocomplete.innerHTML = `<div style="padding:8px;" class="muted">This participant has no spell slots available.</div>`;
-        autocomplete.style.display = "block";
-        return;
-    }
-
-    const trimmed = query.trim();
-    if (!trimmed) {
-        autocomplete.innerHTML = "";
-        autocomplete.style.display = "none";
-        npcSpellSearchResultsCache = [];
-        return;
-    }
-
-    const results = await api(`/api/v1/spells?q=${encodeURIComponent(trimmed)}`);
-    const filtered = results.filter(spell => participantCanCastSpellLevel(participant, spell.level));
-    npcSpellSearchResultsCache = filtered;
-
-    if (!filtered.length) {
-        autocomplete.innerHTML = `<div style="padding:8px;" class="muted">No castable spells found</div>`;
-        autocomplete.style.display = "block";
-        return;
-    }
-
-    autocomplete.innerHTML = filtered.slice(0, 10).map(spell => `
-        <div
-            class="event-spell-autocomplete-item"
-            data-index="${escapeHtml(spell.index)}"
-            data-name="${escapeHtml(spell.name || "")}"
-            data-level="${escapeHtml(spell.level ?? "")}"
-            data-description="${escapeHtml(spell.brief_description || "")}"
-            style="padding:8px; border-bottom:1px solid #eee; cursor:pointer;"
-        >
-            <strong>${escapeHtml(spell.name)}</strong>
-            <span class="muted"> | Level ${escapeHtml(spell.level)}</span><br>
-            <span class="muted">${escapeHtml(spell.brief_description || "")}</span>
-        </div>
-    `).join("");
-
-    autocomplete.style.display = "block";
-
-    for (const item of autocomplete.querySelectorAll(".event-spell-autocomplete-item")) {
-        item.addEventListener("click", async () => {
-            const spellIndex = item.dataset.index;
-            const spellName = item.dataset.name || spellIndex;
-
-            document.getElementById("event-selected-spell-index").value = spellIndex;
-            document.getElementById("event-spell-search-input").value = spellName;
-            autocomplete.style.display = "none";
-
-            await updateSpellDescription(spellIndex);
-        });
-    }
-}
-
-async function loadSpellsForParticipant(participantId, selectedSpellIndex = null, selectedSpellName = null) {
-    const spellDescription = document.getElementById("spell-description");
-
-    clearSpellSelection();
-
-    if (!participantId) {
-        setSpellInputModeForParticipant(null);
-        return;
-    }
-
-    const participant = participantsCache.find(p => p.id === participantId);
-    if (!participant) {
-        setSpellInputModeForParticipant(null);
-        return;
-    }
-
-    setSpellInputModeForParticipant(participant);
-
-    if (isPartySourceParticipant(participant)) {
-        await loadPartySpellsForParticipant(participant, selectedSpellIndex);
-        return;
-    }
-
-    if (!participantHasAnySpellSlots(participant)) {
-        spellDescription.textContent = "This participant has no spell slots available.";
-        return;
-    }
-
-    if (selectedSpellIndex) {
-        document.getElementById("event-selected-spell-index").value = selectedSpellIndex;
-        document.getElementById("event-spell-search-input").value = selectedSpellName || "";
-        await updateSpellDescription(selectedSpellIndex);
-    }
-}
-
-async function updateSpellDescription(spellIndex) {
-    const spellDescription = document.getElementById("spell-description");
-    const participant = getSelectedSourceParticipant();
-
-    if (!spellIndex) {
-        spellDescription.textContent = "";
-        return;
-    }
-
-    if (participant && isPartySourceParticipant(participant)) {
-        const spellSelect = document.getElementById("event-spell");
-        const selectedOption = spellSelect.options[spellSelect.selectedIndex];
-
-        if (selectedOption && selectedOption.value) {
-            const name = selectedOption.dataset.name || selectedOption.textContent || spellIndex;
-            const level = selectedOption.dataset.level || "";
-            const description = selectedOption.dataset.description || "";
-
-            spellDescription.textContent =
-                `${name}${level !== "" ? ` | Level ${level}` : ""}${description ? ` — ${description}` : ""}`;
-            return;
-        }
-    }
-
-    const spell = await api(`/api/v1/spells/${encodeURIComponent(spellIndex)}`);
-
-    let description = "";
-    if (Array.isArray(spell.desc) && spell.desc.length > 0) {
-        description = spell.desc[0];
-    } else if (typeof spell.desc === "string") {
-        description = spell.desc;
-    } else if (spell.brief_description) {
-        description = spell.brief_description;
-    }
-
-    const schoolName = spell.school?.name || spell.school || "";
-    spellDescription.textContent =
-        `${spell.name} | Level ${spell.level}${schoolName ? ` | ${schoolName}` : ""}${description ? ` — ${description}` : ""}`;
 }
 
 async function startEditParticipant(participantId) {
@@ -775,7 +861,7 @@ async function startEditParticipant(participantId) {
     if (!p) return;
 
     editingParticipantId = p.id;
-    editingParticipantType = p.character_id ? "PARTY" : "OTHER";
+    editingParticipantType = p.character_id ? "PARTY" : "ENEMY";
 
     if (p.character_id) {
         document.getElementById("participant-edit-id").value = p.id;
@@ -800,25 +886,34 @@ async function startEditParticipant(participantId) {
         document.getElementById("custom-participant-edit-id").value = p.id;
         document.getElementById("custom-participant-name").value = p.name || "";
         document.getElementById("custom-participant-class-name").value = p.class_name || "";
-        document.getElementById("custom-participant-level").value = p.level ?? "";
         document.getElementById("custom-participant-max-hp").value = p.max_hp ?? "";
         document.getElementById("custom-participant-current-hp").value = p.current_hp ?? "";
         document.getElementById("custom-participant-notes").value = p.notes || "";
         document.getElementById("selected-monster-index").value = p.monster_index || "";
         document.getElementById("monster-search-input").value = p.name || "";
         document.getElementById("monster-preview").textContent = p.monster_index ? `Imported monster: ${p.monster_index}` : "";
-        document.getElementById("custom-participant-ac").value = p.armor_class ?? "";
+        document.getElementById("custom-participant-ac").readOnly = true;
 
         for (let level = 1; level <= 9; level++) {
             const input = document.getElementById(`custom-participant-slots-${level}`);
+            const row = document.getElementById(`custom-participant-slot-row-${level}`);
+            const value = p[`spell_slots_${level}`];
+
             if (input) {
-                input.value = p[`spell_slots_${level}`] ?? "";
+                input.value = value ?? "";
+                input.readOnly = true;
+            }
+
+            if (row) {
+                row.style.display = value !== null && value !== undefined ? "block" : "none";
             }
         }
 
-        document.getElementById("custom-participant-form-heading").textContent = "Edit Other Participant";
-        document.getElementById("custom-participant-submit-btn").textContent = "Save Other Participant";
+        document.getElementById("custom-participant-form-heading").textContent = "Edit Enemy Participant";
+        document.getElementById("custom-participant-submit-btn").textContent = "Save Enemy Participant";
         document.getElementById("custom-participant-cancel-btn").style.display = "inline-block";
+
+        setMonsterImportedFieldsVisible(true);
     }
 
     window.scrollTo({
@@ -827,6 +922,8 @@ async function startEditParticipant(participantId) {
     });
 }
 
+
+// Delete a participant, then refresh all dependent UI sections.
 async function deleteParticipant(participantId) {
     const p = participantsCache.find(x => x.id === participantId);
     const label = p ? p.name : `participant ${participantId}`;
@@ -853,6 +950,9 @@ async function deleteParticipant(participantId) {
     }
 }
 
+/* ---------------------------- Event editing ---------------------------- */
+
+// Put an existing event into the form for editing.
 async function startEditEvent(eventId) {
     const e = eventsCache.find(ev => ev.id === eventId);
     if (!e) return;
@@ -860,8 +960,6 @@ async function startEditEvent(eventId) {
     editingEventId = e.id;
 
     document.getElementById("event-id").value = e.id;
-    document.getElementById("event-kind").value = e.kind || "";
-    toggleEventFields();
 
     document.getElementById("event-source-select").value =
         e.source_participant_id !== null && e.source_participant_id !== undefined
@@ -873,16 +971,40 @@ async function startEditEvent(eventId) {
             ? String(e.target_participant_id)
             : "";
 
-    document.getElementById("event-amount").value = e.amount ?? "";
-    document.getElementById("event-detail").value = e.detail || "";
-
-    await loadSpellsForParticipant(
+    await loadActionsForParticipant(
         e.source_participant_id !== null && e.source_participant_id !== undefined
             ? e.source_participant_id
             : null,
-        e.spell_index || null,
-        e.spell_name_snapshot || null
+        e.action_ref || null
     );
+
+    const option = getSelectedActionOption();
+    const kindHint = option?.dataset.kindHint || "";
+
+    resetEventEffectFields();
+
+    if (kindHint === "CUSTOM") {
+        document.getElementById("standard-note-fields").style.display = "none";
+        document.getElementById("custom-action-fields").style.display = "block";
+
+        if (e.kind === "DAMAGE") {
+            document.getElementById("custom-damage").value = e.amount ?? "";
+        } else if (e.kind === "HEAL") {
+            document.getElementById("custom-healing").value = e.amount ?? "";
+        }
+
+        document.getElementById("event-detail-custom").value = e.detail || "";
+    } else if (e.kind === "DAMAGE" || e.kind === "HEAL") {
+        document.getElementById("event-amount-container").style.display = "block";
+        document.getElementById("event-amount-label").textContent =
+            e.kind === "HEAL" ? "Healing" : "Damage";
+        document.getElementById("event-amount").placeholder =
+            e.kind === "HEAL" ? "Healing" : "Damage";
+        document.getElementById("event-amount").value = e.amount ?? "";
+        document.getElementById("event-detail-standard").value = e.detail || "";
+    } else {
+        document.getElementById("event-detail-standard").value = e.detail || "";
+    }
 
     document.getElementById("event-form-heading").textContent = "Edit Event";
     document.getElementById("event-submit-btn").textContent = "Save Changes";
@@ -893,7 +1015,7 @@ async function startEditEvent(eventId) {
         behavior: "smooth"
     });
 }
-
+// Delete an event, then refresh dependent UI.
 async function deleteEvent(eventId) {
     const e = eventsCache.find(ev => ev.id === eventId);
     const label = e ? `${e.kind}${e.detail ? ` (${e.detail})` : ""}` : `event ${eventId}`;
@@ -920,6 +1042,9 @@ async function deleteEvent(eventId) {
     }
 }
 
+/* ------------------------------ Data loads ----------------------------- */
+
+// Load AI-generated encounter review.
 async function loadAiReview() {
     const observed = document.getElementById("ai-observed-difficulty");
     const metIntent = document.getElementById("ai-did-meet-intent");
@@ -953,6 +1078,7 @@ async function loadAiReview() {
     }
 }
 
+// Load encounter details and derive campaign id via its parent session.
 async function loadEncounter() {
     const encounter = await api(`/api/v1/encounters/${encounterId}`);
 
@@ -981,6 +1107,7 @@ async function loadEncounter() {
     campaignId = session.campaign_id;
 }
 
+// Load characters for the "Add Party Character" select.
 async function loadCharacterOptions() {
     const select = document.getElementById("participant-character-id");
     select.innerHTML = `<option value="">Select character</option>`;
@@ -1011,6 +1138,7 @@ async function loadCharacterOptions() {
     hidePartyCharacterFields();
 }
 
+// Load encounter participants, render them, and refresh source/target/action selectors.
 async function loadParticipants() {
     const participants = await api(`/api/v1/encounters/${encounterId}/participants`);
     participantsCache = participants;
@@ -1018,10 +1146,10 @@ async function loadParticipants() {
     const container = document.getElementById("participants");
     container.innerHTML = "";
 
+    // Preserve current event form selections where possible.
     const previouslySelectedSourceId = document.getElementById("event-source-select").value || "";
     const previouslySelectedTargetId = document.getElementById("event-target-select").value || "";
-    const previouslySelectedSpellIndex = getSelectedSpellIndex();
-    const previousNpcSpellName = document.getElementById("event-spell-search-input").value || "";
+    const previouslySelectedActionRef = getSelectedAction().action_ref || null;
 
     populateEventParticipantSelectors();
 
@@ -1037,14 +1165,9 @@ async function loadParticipants() {
         : null;
 
     if (selectedSourceId) {
-        await loadSpellsForParticipant(
-            selectedSourceId,
-            previouslySelectedSpellIndex || null,
-            previousNpcSpellName || null
-        );
+        await loadActionsForParticipant(selectedSourceId, previouslySelectedActionRef);
     } else {
-        clearSpellSelection();
-        setSpellInputModeForParticipant(null);
+        clearActionSelection();
     }
 
     if (!participants.length) {
@@ -1075,6 +1198,7 @@ async function loadParticipants() {
     }
 }
 
+// Load events and render them using action snapshots instead of spell-only snapshots.
 async function loadEvents() {
     const events = await api(`/api/v1/encounters/${encounterId}/events`);
     eventsCache = events;
@@ -1096,10 +1220,10 @@ async function loadEvents() {
         );
 
         const sourceName = sourceParticipant ? sourceParticipant.name : "Unknown";
-        const targetName = targetParticipant ? targetParticipant.name : "Unknown";
+        const targetName = targetParticipant ? targetParticipant.name : "No target";
 
-        const spellLabel = e.spell_name_snapshot
-            ? `${e.spell_name_snapshot}${e.spell_brief_description ? ` — ${e.spell_brief_description}` : ""}`
+        const actionLabel = e.action_name_snapshot
+            ? `${e.action_name_snapshot}${e.action_description_snapshot ? ` — ${e.action_description_snapshot}` : ""}`
             : "";
 
         const div = document.createElement("div");
@@ -1110,9 +1234,7 @@ async function loadEvents() {
             <span class="muted">
                 ${escapeHtml(sourceName)} → ${escapeHtml(targetName)}
                 ${e.amount !== null && e.amount !== undefined ? ` | ${escapeHtml(e.amount)}` : ""}
-                ${spellLabel ? ` | ${escapeHtml(spellLabel)}` : ""}
-                ${e.spell_slots_consumed !== null && e.spell_slots_consumed !== undefined ? ` | spell slots used: ${escapeHtml(e.spell_slots_consumed)}` : ""}
-                ${e.spell_slot_level_used !== null && e.spell_slot_level_used !== undefined ? ` | slot level: ${escapeHtml(e.spell_slot_level_used)}` : ""}
+                ${actionLabel ? ` | ${escapeHtml(actionLabel)}` : ""}
             </span><br>
             <span class="muted">${escapeHtml(e.detail || "")}</span><br>
             <button type="button" onclick="startEditEvent(${e.id})">Edit</button>
@@ -1123,6 +1245,7 @@ async function loadEvents() {
     }
 }
 
+// Load analytics summary for this encounter.
 async function loadEncounterReview() {
     const review = await api(`/api/v1/analytics/encounters/${encounterId}/review`);
 
@@ -1148,47 +1271,24 @@ async function loadEncounterReview() {
         review.party_max_hp_total ?? 0;
 }
 
+/* ----------------------------- Event handlers ----------------------------- */
+
+// Show party participant extra fields when a character is selected.
 document.getElementById("participant-character-id").addEventListener("change", handlePartyCharacterSelection);
 
-document.getElementById("event-kind").addEventListener("change", toggleEventFields);
-
+// When the source changes, reload the available actions for that participant.
 document.getElementById("event-source-select").addEventListener("change", async (e) => {
     const participantId = e.target.value ? Number(e.target.value) : null;
-    await loadSpellsForParticipant(participantId);
+    await loadActionsForParticipant(participantId);
 });
 
-document.getElementById("event-spell").addEventListener("change", async (e) => {
-    const spellIndex = e.target.value || null;
-    await updateSpellDescription(spellIndex);
+// When action changes, update the descriptive text underneath.
+document.getElementById("event-action-select").addEventListener("change", () => {
+    updateActionDescription();
 });
 
-document.getElementById("event-spell-search-input").addEventListener("input", (e) => {
-    const query = e.target.value;
-
-    if (npcSpellSearchDebounceHandle) {
-        clearTimeout(npcSpellSearchDebounceHandle);
-    }
-
-    npcSpellSearchDebounceHandle = setTimeout(async () => {
-        try {
-            await searchNpcSpellsAutocomplete(query);
-        } catch (err) {
-            const autocomplete = document.getElementById("event-spell-autocomplete");
-            autocomplete.innerHTML = `<div style="padding:8px;" class="muted">Search failed</div>`;
-            autocomplete.style.display = "block";
-            document.getElementById("spell-description").textContent = err.message;
-        }
-    }, 250);
-});
-
+// Hide monster autocomplete when clicking elsewhere.
 document.addEventListener("click", (e) => {
-    const spellAutocomplete = document.getElementById("event-spell-autocomplete");
-    const spellInput = document.getElementById("event-spell-search-input");
-
-    if (!spellAutocomplete.contains(e.target) && e.target !== spellInput) {
-        spellAutocomplete.style.display = "none";
-    }
-
     const monsterAutocomplete = document.getElementById("monster-autocomplete");
     const monsterInput = document.getElementById("monster-search-input");
 
@@ -1197,6 +1297,7 @@ document.addEventListener("click", (e) => {
     }
 });
 
+// Submit create/update for party participant.
 document.getElementById("participant-form").addEventListener("submit", async (e) => {
     e.preventDefault();
 
@@ -1265,23 +1366,32 @@ document.getElementById("participant-form").addEventListener("submit", async (e)
     }
 });
 
+// Submit create/update for monster/custom participant.
 document.getElementById("custom-participant-form").addEventListener("submit", async (e) => {
     e.preventDefault();
 
+    const selectedMonsterIndex = document.getElementById("selected-monster-index").value || null;
+
+    // Require monster import only when creating a new ENEMY participant.
+    if (!editingParticipantId && !selectedMonsterIndex) {
+        alert("Please import a monster from the dataset before adding an Enemy Participant.");
+        return;
+    }
+
     const payload = {
         character_id: null,
-        monster_index: document.getElementById("selected-monster-index").value || null,
+        monster_index: selectedMonsterIndex,
         name: document.getElementById("custom-participant-name").value,
-        participant_type: "OTHER",
+        participant_type: "ENEMY",
         class_name: document.getElementById("custom-participant-class-name").value || null,
-        level: document.getElementById("custom-participant-level").value
-            ? Number(document.getElementById("custom-participant-level").value)
-            : null,
         max_hp: document.getElementById("custom-participant-max-hp").value
             ? Number(document.getElementById("custom-participant-max-hp").value)
             : null,
         current_hp: document.getElementById("custom-participant-current-hp").value
             ? Number(document.getElementById("custom-participant-current-hp").value)
+            : null,
+        armor_class: document.getElementById("custom-participant-ac").value
+            ? Number(document.getElementById("custom-participant-ac").value)
             : null,
         spell_slots_1: document.getElementById("custom-participant-slots-1").value
             ? Number(document.getElementById("custom-participant-slots-1").value)
@@ -1314,7 +1424,7 @@ document.getElementById("custom-participant-form").addEventListener("submit", as
     };
 
     try {
-        if (editingParticipantId && editingParticipantType === "OTHER") {
+        if (editingParticipantId && editingParticipantType === "ENEMY") {
             await api(`/api/v1/participants/${editingParticipantId}`, {
                 method: "PUT",
                 body: JSON.stringify(payload)
@@ -1335,6 +1445,7 @@ document.getElementById("custom-participant-form").addEventListener("submit", as
     }
 });
 
+// Monster autocomplete input debounce.
 document.getElementById("monster-search-input").addEventListener("input", (e) => {
     const query = e.target.value;
 
@@ -1354,25 +1465,17 @@ document.getElementById("monster-search-input").addEventListener("input", (e) =>
     }, 250);
 });
 
+// Submit create/update event using action_type + action_ref.
 document.getElementById("event-form").addEventListener("submit", async (e) => {
     e.preventDefault();
 
-    const kind = document.getElementById("event-kind").value;
-
-    const payload = {
-        kind: kind,
-        source_participant_id: document.getElementById("event-source-select").value
-            ? Number(document.getElementById("event-source-select").value)
-            : null,
-        target_participant_id: document.getElementById("event-target-select").value
-            ? Number(document.getElementById("event-target-select").value)
-            : null,
-        amount: (kind === "DAMAGE" || kind === "HEAL") && document.getElementById("event-amount").value
-            ? Number(document.getElementById("event-amount").value)
-            : null,
-        spell_index: getSelectedSpellIndex(),
-        detail: document.getElementById("event-detail").value || null
-    };
+    let payload;
+    try {
+        payload = buildEventPayload();
+    } catch (err) {
+        alert(err.message);
+        return;
+    }
 
     try {
         if (editingEventId) {
@@ -1397,10 +1500,14 @@ document.getElementById("event-form").addEventListener("submit", async (e) => {
     }
 });
 
+// Cancel buttons reset forms back to create mode.
 document.getElementById("participant-cancel-btn").addEventListener("click", resetParticipantForms);
 document.getElementById("custom-participant-cancel-btn").addEventListener("click", resetParticipantForms);
 document.getElementById("event-cancel-btn").addEventListener("click", resetEventForm);
 
+/* -------------------------------- Init -------------------------------- */
+
+// Initial page bootstrap.
 async function init() {
     try {
         await loadEncounter();
@@ -1410,9 +1517,8 @@ async function init() {
         await loadEncounterReview();
         await loadAiReview();
 
-        toggleEventFields();
-        clearSpellSelection();
-        setSpellInputModeForParticipant(null);
+        clearActionSelection();
+        resetEventEffectFields();
         resetParticipantForms();
     } catch (err) {
         console.error("Encounter page init failed:", err);
@@ -1421,6 +1527,7 @@ async function init() {
 }
 
 init();
+
 </script>
 
 {% endblock %}

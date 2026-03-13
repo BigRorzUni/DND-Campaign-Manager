@@ -12,19 +12,6 @@ class EventCreate(BaseModel):
 
     detail: str | None = Field(default=None, max_length=4000)
 
-
-class EventUpdate(BaseModel):
-    kind: str | None = Field(default=None, min_length=1, max_length=50)
-    source_participant_id: int | None = None
-    target_participant_id: int | None = None
-    amount: int | None = Field(default=None, ge=0)
-
-    action_type: str | None = Field(default=None, max_length=50)
-    action_ref: str | None = Field(default=None, max_length=150)
-
-    detail: str | None = Field(default=None, max_length=4000)
-
-
 class EventOut(BaseModel):
     id: int
     encounter_id: int
@@ -37,6 +24,9 @@ class EventOut(BaseModel):
     action_ref: str | None
     action_name_snapshot: str | None
     action_description_snapshot: str | None
+
+    spell_slots_consumed: int | None
+    spell_slot_level_used: int | None
 
     detail: str | None
 

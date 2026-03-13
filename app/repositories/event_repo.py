@@ -13,12 +13,11 @@ class EventRepo:
         source_participant_id: int | None,
         target_participant_id: int | None,
         amount: int | None,
-        spell_slots_consumed: int | None,
-        spell_slot_level_used: int | None,
+        action_type: str | None,
+        action_ref: str | None,
+        action_name_snapshot: str | None,
+        action_description_snapshot: str | None,
         detail: str | None,
-        spell_index: str | None,
-        spell_name_snapshot: str | None,
-        spell_brief_description: str | None,
     ) -> Event:
         obj = Event(
             encounter_id=encounter_id,
@@ -26,12 +25,11 @@ class EventRepo:
             source_participant_id=source_participant_id,
             target_participant_id=target_participant_id,
             amount=amount,
-            spell_slots_consumed=spell_slots_consumed,
-            spell_slot_level_used=spell_slot_level_used,
+            action_type=action_type,
+            action_ref=action_ref,
+            action_name_snapshot=action_name_snapshot,
+            action_description_snapshot=action_description_snapshot,
             detail=detail,
-            spell_index=spell_index,
-            spell_name_snapshot=spell_name_snapshot,
-            spell_brief_description=spell_brief_description,
         )
         db.add(obj)
         db.commit()

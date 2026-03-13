@@ -11,6 +11,7 @@ from app.core.config import settings
 from app.models.encounter import Encounter
 from app.models.encounter_participant import EncounterParticipant
 from app.models.event import Event
+from app.services.spell_dataset import SpellDatasetService
 
 
 class AiReviewService:
@@ -29,6 +30,34 @@ class AiReviewService:
             return
         encounter.ai_review_is_stale = True
         db.commit()
+
+    def _calculate_party_spell_slots_used(self, events: list[Event], party_ids: set[int]) -> int:
+        spell_level_cache: dict[str, int | None] = {}
+        total = 0
+
+        for event in events:
+            if event.source_participant_id not in party_ids:
+                continue
+            if event.action_type != "spell":
+                continue
+            if not event.action_ref:
+                continue
+
+            if event.action_ref not in spell_level_cache:
+                try:
+                    spell = SpellDatasetService.get_spell(event.action_ref)
+                    level = spell.get("level")
+                    spell_level_cache[event.action_ref] = level if isinstance(level, int) else None
+                except Exception:
+                    spell_level_cache[event.action_ref] = None
+
+            level = spell_level_cache[event.action_ref]
+
+            # Count only levelled spells, not cantrips
+            if level is not None and level > 0:
+                total += 1
+
+        return total
 
     def build_encounter_summary(
         self,
@@ -68,11 +97,7 @@ class AiReviewService:
             if e.kind == "HEAL" and e.target_participant_id in party_ids
         )
 
-        party_spell_slots_used = sum(
-            e.spell_slots_consumed or 0
-            for e in events
-            if e.source_participant_id in party_ids
-        )
+        party_spell_slots_used = self._calculate_party_spell_slots_used(events, party_ids)
 
         party_zero_hp_count = sum(
             1 for p in party_participants
@@ -92,9 +117,15 @@ class AiReviewService:
                     "max_hp": p.max_hp,
                     "current_hp_end": p.current_hp,
                     "initial_spell_slots_available": {
-                        "level_1": p.spell_slots_1,
-                        "level_2": p.spell_slots_2,
-                        "level_3": p.spell_slots_3,
+                        "level_1": p.initial_spell_slots_1,
+                        "level_2": p.initial_spell_slots_2,
+                        "level_3": p.initial_spell_slots_3,
+                        "level_4": p.initial_spell_slots_4,
+                        "level_5": p.initial_spell_slots_5,
+                        "level_6": p.initial_spell_slots_6,
+                        "level_7": p.initial_spell_slots_7,
+                        "level_8": p.initial_spell_slots_8,
+                        "level_9": p.initial_spell_slots_9,
                     },
                 }
             )
@@ -107,8 +138,8 @@ class AiReviewService:
             parts = [f"{e.kind}: {source_name} -> {target_name}"]
             if e.amount is not None:
                 parts.append(f"amount={e.amount}")
-            if e.spell_slots_consumed is not None:
-                parts.append(f"spell_slots_used={e.spell_slots_consumed}")
+            if e.action_name_snapshot:
+                parts.append(f"action={e.action_name_snapshot}")
             if e.detail:
                 parts.append(f"detail={e.detail}")
 

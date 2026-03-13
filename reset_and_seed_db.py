@@ -12,7 +12,10 @@ from app.models.session import Session
 from app.models.encounter import Encounter
 from app.models.encounter_participant import EncounterParticipant
 from app.models.event import Event
-from app.models.character_spell import CharacterSpell
+
+from app.services.monster_dataset import MonsterDatasetService
+from app.services.spell_dataset import SpellDatasetService
+from app.services.equipment_dataset import EquipmentDatasetService
 from app.services.encounter_state_service import recalculate_encounter_state
 
 
@@ -27,10 +30,77 @@ def reset_database() -> None:
     Base.metadata.create_all(bind=engine)
 
 
+def get_required_spell(spell_index: str) -> dict:
+    spell = SpellDatasetService.get_spell(spell_index)
+    if not spell:
+        raise RuntimeError(
+            f"Spell '{spell_index}' not found in dataset."
+        )
+    return spell
+
+
+def get_required_equipment(equipment_index: str) -> dict:
+    equipment = EquipmentDatasetService.get_equipment(equipment_index)
+    if not equipment:
+        raise RuntimeError(
+            f"Equipment '{equipment_index}' not found in dataset."
+        )
+    return equipment
+
+
+def get_required_monster(monster_index: str) -> dict:
+    monster = MonsterDatasetService.get_monster(monster_index)
+    if not monster:
+        raise RuntimeError(
+            f"Monster '{monster_index}' not found in dataset."
+        )
+    return monster
+
+
+def first_desc(value: dict) -> str | None:
+    desc = value.get("desc")
+    if isinstance(desc, list) and desc:
+        return desc[0]
+    if isinstance(desc, str):
+        return desc
+    return None
+
+
+def extract_monster_ac(monster: dict) -> int | None:
+    armor_class = monster.get("armor_class")
+
+    if isinstance(armor_class, int):
+        return armor_class
+
+    if isinstance(armor_class, list) and armor_class:
+        first = armor_class[0]
+        if isinstance(first, dict):
+            return first.get("value")
+        if isinstance(first, int):
+            return first
+
+    return None
+
+
+def extract_monster_type(monster: dict) -> str | None:
+    monster_type = monster.get("type")
+
+    if isinstance(monster_type, str):
+        return monster_type
+
+    if isinstance(monster_type, dict):
+        return monster_type.get("name")
+
+    return None
+
+
 def seed_database() -> None:
     db = SessionLocal()
 
     try:
+        # ------------------------------------------------------------------
+        # Campaign
+        # ------------------------------------------------------------------
         campaign = Campaign(
             name="Demo Campaign",
             description="Seeded campaign for local development",
@@ -39,6 +109,22 @@ def seed_database() -> None:
         db.commit()
         db.refresh(campaign)
 
+        # ------------------------------------------------------------------
+        # Resolve dataset references up front
+        # ------------------------------------------------------------------
+        fireball = get_required_spell("fireball")
+        misty_step = get_required_spell("misty-step")
+        magic_missile = get_required_spell("magic-missile")
+        bane = get_required_spell("bane")
+
+        quarterstaff = get_required_equipment("quarterstaff")
+        dagger = get_required_equipment("dagger")
+        shield = get_required_equipment("shield")
+        longsword = get_required_equipment("longsword")
+
+        # ------------------------------------------------------------------
+        # Characters now store indices directly
+        # ------------------------------------------------------------------
         ezra = Character(
             campaign_id=campaign.id,
             name="Ezra",
@@ -48,6 +134,16 @@ def seed_database() -> None:
             max_hp=24,
             current_hp=24,
             armor_class=13,
+            spell_indices=[
+                fireball["index"],
+                misty_step["index"],
+                magic_missile["index"],
+                bane["index"],
+            ],
+            equipment_indices=[
+                quarterstaff["index"],
+                dagger["index"],
+            ],
             spell_slots_1=4,
             spell_slots_2=3,
             spell_slots_3=2,
@@ -59,6 +155,7 @@ def seed_database() -> None:
             spell_slots_9=None,
             notes="Evocation specialist",
         )
+
         thalia = Character(
             campaign_id=campaign.id,
             name="Thalia",
@@ -68,6 +165,11 @@ def seed_database() -> None:
             max_hp=30,
             current_hp=30,
             armor_class=17,
+            spell_indices=[],
+            equipment_indices=[
+                longsword["index"],
+                shield["index"],
+            ],
             spell_slots_1=None,
             spell_slots_2=None,
             spell_slots_3=None,
@@ -85,27 +187,9 @@ def seed_database() -> None:
         db.refresh(ezra)
         db.refresh(thalia)
 
-        ezra_fireball = CharacterSpell(
-            character_id=ezra.id,
-            spell_index="fireball",
-            spell_name_snapshot="Fireball",
-            spell_level=3,
-            brief_description="A bright streak flashes from your pointing finger to a point you choose, then blossoms with a low roar into an explosion of flame.",
-            notes="Signature spell",
-        )
-
-        ezra_misty = CharacterSpell(
-            character_id=ezra.id,
-            spell_index="misty-step",
-            spell_name_snapshot="Misty Step",
-            spell_level=2,
-            brief_description="Briefly surrounded by silvery mist, you teleport up to 30 feet to an unoccupied space you can see.",
-            notes=None,
-        )
-
-        db.add_all([ezra_fireball, ezra_misty])
-        db.commit()
-
+        # ------------------------------------------------------------------
+        # Session / Encounter
+        # ------------------------------------------------------------------
         session = Session(
             campaign_id=campaign.id,
             date="2026-03-09",
@@ -130,13 +214,30 @@ def seed_database() -> None:
         db.commit()
         db.refresh(encounter)
 
+        # ------------------------------------------------------------------
+        # Monsters come directly from dataset services
+        # ------------------------------------------------------------------
+        ogre = get_required_monster("ogre")
+        goblin = get_required_monster("goblin")
+
+        ogre_ac = extract_monster_ac(ogre)
+        goblin_ac = extract_monster_ac(goblin)
+
+        ogre_type = extract_monster_type(ogre)
+        goblin_type = extract_monster_type(goblin)
+
+        # ------------------------------------------------------------------
+        # Encounter participants are snapshots of combat state
+        # ------------------------------------------------------------------
         ezra_p = EncounterParticipant(
             encounter_id=encounter.id,
             character_id=ezra.id,
+            monster_index=None,
             name=ezra.name,
             participant_type="PARTY",
             class_name=ezra.class_name,
             level=ezra.level,
+            armor_class=ezra.armor_class,
             max_hp=ezra.max_hp,
             initial_current_hp=ezra.current_hp,
             initial_spell_slots_1=ezra.spell_slots_1,
@@ -164,10 +265,12 @@ def seed_database() -> None:
         thalia_p = EncounterParticipant(
             encounter_id=encounter.id,
             character_id=thalia.id,
+            monster_index=None,
             name=thalia.name,
             participant_type="PARTY",
             class_name=thalia.class_name,
             level=thalia.level,
+            armor_class=thalia.armor_class,
             max_hp=thalia.max_hp,
             initial_current_hp=thalia.current_hp,
             initial_spell_slots_1=thalia.spell_slots_1,
@@ -195,12 +298,14 @@ def seed_database() -> None:
         ogre_p = EncounterParticipant(
             encounter_id=encounter.id,
             character_id=None,
-            name="Ogre",
-            participant_type="OTHER",
-            class_name="Ogre",
+            monster_index=ogre["index"],
+            name=ogre["name"],
+            participant_type="ENEMY",
+            class_name=ogre_type,
             level=None,
-            max_hp=59,
-            initial_current_hp=59,
+            armor_class=ogre_ac,
+            max_hp=ogre.get("hit_points"),
+            initial_current_hp=ogre.get("hit_points"),
             initial_spell_slots_1=None,
             initial_spell_slots_2=None,
             initial_spell_slots_3=None,
@@ -210,7 +315,7 @@ def seed_database() -> None:
             initial_spell_slots_7=None,
             initial_spell_slots_8=None,
             initial_spell_slots_9=None,
-            current_hp=59,
+            current_hp=ogre.get("hit_points"),
             spell_slots_1=None,
             spell_slots_2=None,
             spell_slots_3=None,
@@ -226,10 +331,12 @@ def seed_database() -> None:
         goblin_shaman_p = EncounterParticipant(
             encounter_id=encounter.id,
             character_id=None,
+            monster_index=goblin["index"],
             name="Goblin Shaman",
-            participant_type="OTHER",
-            class_name="Goblin Shaman",
+            participant_type="ENEMY",
+            class_name=goblin_type,
             level=3,
+            armor_class=goblin_ac,
             max_hp=18,
             initial_current_hp=18,
             initial_spell_slots_1=2,
@@ -261,6 +368,9 @@ def seed_database() -> None:
         db.refresh(ogre_p)
         db.refresh(goblin_shaman_p)
 
+        # ------------------------------------------------------------------
+        # Events now use action-based fields
+        # ------------------------------------------------------------------
         events = [
             Event(
                 encounter_id=encounter.id,
@@ -268,12 +378,11 @@ def seed_database() -> None:
                 source_participant_id=ogre_p.id,
                 target_participant_id=thalia_p.id,
                 amount=8,
-                spell_slots_consumed=None,
-                spell_slot_level_used=None,
-                spell_index=None,
-                spell_name_snapshot=None,
-                spell_brief_description=None,
-                detail="Club attack",
+                action_type="monster_action",
+                action_ref=f"{ogre['index']}::action::0",
+                action_name_snapshot="Greatclub",
+                action_description_snapshot="Club attack",
+                detail="Ogre smashes Thalia with its greatclub.",
             ),
             Event(
                 encounter_id=encounter.id,
@@ -281,12 +390,11 @@ def seed_database() -> None:
                 source_participant_id=ezra_p.id,
                 target_participant_id=ogre_p.id,
                 amount=14,
-                spell_slots_consumed=1,
-                spell_slot_level_used=1,
-                spell_index="chromatic-orb",
-                spell_name_snapshot="Chromatic Orb",
-                spell_brief_description="You hurl a 4-inch-diameter sphere of energy at a creature that you can see within range.",
-                detail="Chromatic Orb",
+                action_type="spell",
+                action_ref=magic_missile["index"],
+                action_name_snapshot=magic_missile["name"],
+                action_description_snapshot=first_desc(magic_missile),
+                detail="Ezra casts Magic Missile.",
             ),
             Event(
                 encounter_id=encounter.id,
@@ -294,25 +402,23 @@ def seed_database() -> None:
                 source_participant_id=ezra_p.id,
                 target_participant_id=thalia_p.id,
                 amount=4,
-                spell_slots_consumed=0,
-                spell_slot_level_used=None,
-                spell_index=None,
-                spell_name_snapshot=None,
-                spell_brief_description=None,
+                action_type="custom",
+                action_ref="custom",
+                action_name_snapshot="Custom Action",
+                action_description_snapshot=None,
                 detail="Potion / minor recovery",
             ),
             Event(
                 encounter_id=encounter.id,
-                kind="SPELL",
+                kind="MISC",
                 source_participant_id=ezra_p.id,
                 target_participant_id=ogre_p.id,
                 amount=None,
-                spell_slots_consumed=1,
-                spell_slot_level_used=2,
-                spell_index="misty-step",
-                spell_name_snapshot="Misty Step",
-                spell_brief_description="Briefly surrounded by silvery mist, you teleport up to 30 feet to an unoccupied space you can see.",
-                detail="Misty Step to reposition",
+                action_type="spell",
+                action_ref=misty_step["index"],
+                action_name_snapshot=misty_step["name"],
+                action_description_snapshot=first_desc(misty_step),
+                detail="Ezra uses Misty Step to reposition.",
             ),
             Event(
                 encounter_id=encounter.id,
@@ -320,25 +426,23 @@ def seed_database() -> None:
                 source_participant_id=ogre_p.id,
                 target_participant_id=ezra_p.id,
                 amount=10,
-                spell_slots_consumed=None,
-                spell_slot_level_used=None,
-                spell_index=None,
-                spell_name_snapshot=None,
-                spell_brief_description=None,
+                action_type="custom",
+                action_ref="custom",
+                action_name_snapshot="Custom Action",
+                action_description_snapshot=None,
                 detail="Thrown debris",
             ),
             Event(
                 encounter_id=encounter.id,
-                kind="SPELL",
+                kind="MISC",
                 source_participant_id=goblin_shaman_p.id,
                 target_participant_id=thalia_p.id,
                 amount=None,
-                spell_slots_consumed=1,
-                spell_slot_level_used=1,
-                spell_index="bane",
-                spell_name_snapshot="Bane",
-                spell_brief_description="Up to three creatures of your choice that you can see within range must make Charisma saving throws.",
-                detail="Goblin Shaman weakens the party",
+                action_type="spell",
+                action_ref=bane["index"],
+                action_name_snapshot=bane["name"],
+                action_description_snapshot=first_desc(bane),
+                detail="Goblin Shaman weakens the party.",
             ),
             Event(
                 encounter_id=encounter.id,
@@ -346,12 +450,11 @@ def seed_database() -> None:
                 source_participant_id=goblin_shaman_p.id,
                 target_participant_id=ezra_p.id,
                 amount=6,
-                spell_slots_consumed=1,
-                spell_slot_level_used=1,
-                spell_index="magic-missile",
-                spell_name_snapshot="Magic Missile",
-                spell_brief_description="You create three glowing darts of magical force.",
-                detail="Goblin Shaman casts Magic Missile",
+                action_type="spell",
+                action_ref=magic_missile["index"],
+                action_name_snapshot=magic_missile["name"],
+                action_description_snapshot=first_desc(magic_missile),
+                detail="Goblin Shaman casts Magic Missile.",
             ),
         ]
 
