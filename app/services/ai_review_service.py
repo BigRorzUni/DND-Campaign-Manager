@@ -3,6 +3,8 @@ from __future__ import annotations
 import json
 from typing import Any
 
+import logging
+
 from fastapi import HTTPException
 from openai import OpenAI
 from sqlalchemy.orm import Session as DbSession
@@ -14,13 +16,22 @@ from app.models.event import Event
 from app.services.spell_dataset import SpellDatasetService
 
 
+logger = logging.getLogger(__name__)
+
 class AiReviewService:
     def __init__(self) -> None:
         self.model = settings.OPENAI_MODEL
         self.enabled = settings.AI_REVIEW_ENABLED
 
+        logger.info(
+            "AI review config | enabled=%s | key_present=%s | model=%s",
+            self.enabled,
+            bool(settings.OPENAI_API_KEY),
+            self.model,
+        )
+
         if settings.OPENAI_API_KEY:
-            self.client = OpenAI(api_key=settings.OPENAI_API_KEY)
+            self.client = OpenAI(api_key=settings.OPENAI_API_KEY.strip())
         else:
             self.client = None
 
@@ -243,7 +254,8 @@ class AiReviewService:
                     }
                 },
             )
-        except Exception:
+        except Exception as e:
+            logger.exception("OpenAI review generation failed: %s", e)
             return self._fallback_review()
 
         if not response.output_text:
