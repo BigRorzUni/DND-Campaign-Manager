@@ -1,4 +1,7 @@
 \documentclass[11pt]{article}
+\setlength{\parskip}{0.3em}
+\setlength{\textfloatsep}{8pt}
+\setlength{\floatsep}{8pt}
 
 \usepackage[a4paper,margin=1in]{geometry}
 \usepackage{graphicx}
@@ -32,98 +35,149 @@
 %------------------------------------------------
 \section{Introduction}
 
-This report describes the design and implementation of a RESTful web service for managing tabletop role-playing campaigns. The system allows Dungeon Masters to record campaigns, sessions, encounters, and gameplay events while providing analytics derived from recorded events.
+This report describes the design and implementation of a RESTful web service for managing Dungeons and Dragons campaigns. This system allows Dungeon Masters (DMs) to record campaigns, sessions, encounters, and gameplay events while providing analytics derived from recorded events.
 
-The project was implemented using FastAPI, SQLAlchemy, and SQLite. The system follows a layered architecture separating routing logic, database models, repositories, and validation schemas.
+It is implemented using \textbf{FastAPI}, \textbf{SQLAlchemy}, and \textbf{SQLite} and follows a layered architecture separating routing logic, business logic, repositories, validation schemas, and database models.
+
+The system supports both manual gameplay logging and automated encounter simulation, with both providing flexible analytics but only manual gameplay events contributing to campaign-wide analytics.
 
 
 %------------------------------------------------
-\section{System Overview}
+\section{System Model}
 
-The application provides an API for recording gameplay data and analysing campaign activity.
-
-The system models a tabletop campaign using the following hierarchy:
+The API models a Dungeons and Dragons campaign using a hierarchical
+structure:
 
 \begin{center}
 Campaign $\rightarrow$ Session $\rightarrow$ Encounter $\rightarrow$ Event
 \end{center}
 
 \begin{itemize}
-\item \textbf{Campaign}: a long-running narrative managed by a Dungeon Master.
+\item \textbf{Campaign}: the overall long-running narrative managed by the Dungeon Master.
 \item \textbf{Session}: a single play session within a campaign.
-\item \textbf{Encounter}: a discrete gameplay interaction such as combat.
+\item \textbf{Encounter}: a combat interaction that may be simulated or manually logged.
 \item \textbf{Event}: an atomic action such as damage, healing, or spell usage.
 \end{itemize}
 
-This hierarchical model enables detailed tracking of gameplay while supporting analytics based on recorded events.
+This structure allows gameplay to be recorded at a granular level while
+enabling analytics across encounters, sessions, and entire campaigns.
 
+In addition to the campaign hierarchy, the system models entities that
+participate in encounters.
 
+\subsection{Characters and Encounter Participants}
+
+Characters represent persistent entities belonging to a campaign, typically
+the player characters. Characters store long-term attributes such as class,
+level, maximum hit points, equipment, and known spells.
+
+During combat, characters are instantiated as \textit{encounter participants}.
+Participants represent entities that appear in a specific encounter and
+track temporary state such as current hit points and remaining spell slots.
+
+Separating characters from encounter participants ensures that encounter
+state does not permanently modify the underlying character record.
+
+Participants may also represent monsters imported from external datasets.
+This allows encounters to include enemies without adding them to the
+campaign's persistent character registry.
+
+\subsection{External Game Data}
+
+The system integrates external datasets describing monsters, spells, and
+equipment. These datasets allow the API to provide searchable endpoints
+for importing official DnD content into characters and encounters without
+requiring the data to be stored directly in the application database.
 %------------------------------------------------
 \section{System Architecture}
 
-The API follows a layered architecture separating concerns across multiple components.
+The application follows a layered architecture that separates concerns between HTTP routing, business logic, data access, and persistence. Thhis 
+improves maintainability and testability by isolating different aspects of the system. Avoiding tight coupling between layers allows for easier modifications and extensions in the future.
 
+\subsection{Request Processing Flow}
+\begin{minipage}{0.48\textwidth}
+\centering
 \begin{figure}[H]
 \centering
 \begin{tikzpicture}[
-    node distance=1.8cm,
+    node distance=1.5cm,
     box/.style={
         rectangle,
         draw,
         rounded corners,
-        minimum width=4cm,
-        minimum height=1cm,
+        minimum width=3.2cm,
+        minimum height=0.8cm,
         align=center
     }
 ]
 
-\node[box] (client) {Client\\(Swagger / API Consumer)};
-\node[box, below of=client] (routes) {FastAPI Routes};
-\node[box, below of=routes] (repos) {Repository Layer};
-\node[box, below of=repos] (orm) {SQLAlchemy ORM};
-\node[box, below of=orm] (db) {SQLite Database};
+\node[box] (client) {Client};
+\node[box, below of=client] (routes) {Routes};
+\node[box, below of=routes] (services) {Services};
+\node[box, below of=services] (repos) {Repositories};
+\node[box, below of=repos] (orm) {ORM};
+\node[box, below of=orm] (db) {Database};
 
 \draw[->] (client) -- (routes);
-\draw[->] (routes) -- (repos);
+\draw[->] (routes) -- (services);
+\draw[->] (services) -- (repos);
 \draw[->] (repos) -- (orm);
 \draw[->] (orm) -- (db);
 
 \end{tikzpicture}
-\caption{System Architecture of the Campaign Manager API}
+\caption{Layered architecture of the Campaign Manager API}
 \end{figure}
+\end{minipage}
+\hfill
+\begin{minipage}{0.48\textwidth}
 
-The architecture consists of the following layers:
+When a client sends a request to the API, it is processed through the
+architecture layers in sequence.
 
-\subsection{API Routes}
 
-Routes define HTTP endpoints using the FastAPI framework. These endpoints validate requests, call repository methods, and return responses.
+\begin{enumerate}
+\item Client sends HTTP request
+\item Route validates input using Pydantic
+\item Service layer executes business logic
+\item Repository performs database operations
+\item SQLAlchemy interacts with SQLite
+\item JSON response returned to client
+\end{enumerate}
+This layered flow ensures that request validation, business logic, and database access remain
+clearly separated.
+\end{minipage}
 
-\subsection{Repositories}
+\subsection{Architecture Layers}
 
-Repositories encapsulate database operations and provide a clean interface between the API layer and the database.
+\begin{itemize}
+\item \textbf{Routes}: define HTTP endpoints, validate requests using Pydantic schemas, and return JSON responses. Database sessions are supplied through FastAPI's dependency injection system, ensuring consistent connection handling and allowing dependencies to be overridden during testing.
 
-\subsection{Database Models}
+\item \textbf{Services}: contain business logic such as encounter simulation, event processing, and analytics calculations.
 
-SQLAlchemy models define the relational database schema used by the system.
+\item \textbf{Repositories}: encapsulate database access and isolate query logic from the rest of the application.
 
-\subsection{Schemas}
+\item \textbf{Models}: define the relational schema using SQLAlchemy ORM.
 
-Pydantic schemas validate incoming requests and structure outgoing responses.
-
+\item \textbf{Schemas}: provide request validation and response serialisation.
+\end{itemize}
 
 %------------------------------------------------
-\section{Database Design}
+\section{Data Model Design}
 
-The system stores campaign information using a relational schema implemented with SQLAlchemy.
+Campaign data is stored using a relational database schema implemented
+with SQLAlchemy ORM. A relational model was chosen because the system
+contains strongly structured relationships between entities such as
+campaigns, sessions, encounters, and participants.
 
 \begin{figure}[H]
 \centering
 \begin{tikzpicture}[
-    node distance=3cm,
+    node distance=1.8cm and 2.5cm,
     entity/.style={
         rectangle,
         draw,
-        minimum width=3.5cm,
+        rounded corners,
+        minimum width=4.2cm,
         minimum height=1cm,
         align=center
     }
@@ -131,135 +185,160 @@ The system stores campaign information using a relational schema implemented wit
 
 \node[entity] (campaign) {Campaign\\id, name, description};
 
-\node[entity, below of=campaign] (session) {Session\\id, campaign\_id, date};
+\node[entity, below=of campaign] (session) {Session\\id, campaign\_id, date};
 
-\node[entity, below of=session] (encounter) {Encounter\\id, session\_id, name};
+\node[entity, below=of session] (encounter) {Encounter\\id, session\_id, name};
 
-\node[entity, below of=encounter] (event) {Event\\id, encounter\_id, kind, source, target};
+\node[entity, left=of session] (character) {Character\\id, campaign\_id, name, class};
 
-\draw[->] (campaign) -- node[right]{1..*} (session);
-\draw[->] (session) -- node[right]{1..*} (encounter);
-\draw[->] (encounter) -- node[right]{1..*} (event);
+\node[entity, left=of encounter] (participant) {EncounterParticipant\\id, encounter\_id, character\_id, name};
+
+\node[entity, below=of encounter] (event) {Event\\id, encounter\_id, source\_participant\_id, target\_participant\_id, kind};
+
+\draw[->] (campaign) -- node[right]{0..*} (session);
+\draw[->] (session) -- node[right]{0..*} (encounter);
+\draw[->] (encounter) -- node[above]{0..*} (participant);
+\draw[->] (encounter) -- node[right]{0..*} (event);
+\draw[->] (campaign) -- node[above]{0..*} (character);
+\draw[->] (character) -- node[right]{0..*} (participant);
+\draw[->] (participant) -- node[above]{0..*} (event);
 
 \end{tikzpicture}
-\caption{Entity Relationship Structure of the Campaign Database}
+\caption{Core Entity Relationships in the Campaign Manager Database}
 \end{figure}
 
-The core entities include:
+The diagram shows the core entity relationships. Campaigns contain
+sessions, sessions contain encounters, and encounters contain
+participants and events. Characters exist at campaign level as
+persistent entities, while encounter participants represent combatants
+within a specific encounter and track temporary combat state.
 
-\subsection{Campaign}
+\subsection{Event-Based Logging}
 
-Stores high-level campaign information.
-
-\subsection{Session}
-
-Represents a single gameplay session belonging to a campaign.
-
-\subsection{Encounter}
-
-Represents a gameplay interaction such as combat.
-
-\subsection{Event}
-
-Stores atomic gameplay actions such as damage, healing, spell usage, and character status changes.
-
-The event-based design allows complex analytics to be performed by aggregating event data across encounters.
-
+Gameplay interactions are stored as atomic events, such as damage,
+healing, or spell usage. Storing events rather than derived statistics
+allows analytics to be generated dynamically by aggregating event data.
+It also provides a chronological record of how encounters unfold and
+allows new analytics features to be added without modifying the schema.
 
 %------------------------------------------------
-\section{API Design}
+\subsection{Characters and Encounter Participants}
 
-The API follows REST principles and exposes endpoints for managing campaign data.
-
-Example endpoint:
-
-\begin{lstlisting}[language=bash]
-GET /api/v1/campaigns
-\end{lstlisting}
-
-Core API functionality includes:
-
-\begin{itemize}
-\item Campaign CRUD operations
-\item Session management
-\item Encounter tracking
-\item Event logging
-\end{itemize}
-
-All endpoints return JSON responses and are documented using OpenAPI.
-
-Interactive documentation is available via FastAPI’s Swagger interface.
-
+\textbf{Characters} represent player characters or non-player characters belonging to a campaign. Characters store persistent attributes such as class, level, and equipment.
+While \textbf{Participants} represent entities within an encounter. A participant may be linked to a character or may represent a monster imported from an external dataset.
+Separating characters from participants allows encounter-specific state such as hit points and spell slots to be tracked independently from persistent character data. It also
+allows encounters to include temporary entities such as monsters without cluttering the campaign's character registry.
 
 %------------------------------------------------
-\section{Analytics Features}
+\section{Core Features}
 
-The system provides several analytics endpoints derived from recorded events.
+The system provides several core features that support gameplay tracking
+and analysis.
 
-\subsection{Damage Leaderboard}
+\textbf{Encounter Simulation} allows encounters to be automatically
+resolved. The simulation randomises initiative order, iterates through
+combat rounds, selects actions for participants, and generates damage or
+healing events using the same event structure as manual gameplay logs.
 
-Aggregates total damage dealt by each character across a campaign.
+\textbf{Analytics} are derived by aggregating event records. These include
+damage leaderboards, damage taken, healing received, and spell slot usage.
 
-\subsection{Encounter Difficulty Summary}
-
-Summarises encounters based on damage totals and character down events.
-
-\subsection{Event Breakdown}
-
-Counts occurrences of different event types such as damage, healing, and spell usage.
-
+\textbf{External Datasets} are used to provide searchable game content,
+including spells, equipment, monsters, and character classes. This allows
+official DnD resources to be imported into characters and encounters
+without storing the entire dataset in the application database.
 
 %------------------------------------------------
-\section{Testing Strategy}
+\section{Testing and Deployment}
 
-Automated tests were implemented using \texttt{pytest}.
+Automated tests were implemented using \texttt{pytest}. Tests use
+FastAPI's \texttt{TestClient} to simulate HTTP requests, allowing the
+API to be tested in a way that closely mirrors real usage.
 
-Tests use FastAPI's TestClient to simulate HTTP requests to the API.
+Each test runs against a temporary SQLite database to ensure isolation
+from development data and deterministic behaviour. Testing through HTTP
+requests validates multiple layers of the application simultaneously,
+including request validation, service logic, repository operations, and
+database interactions.
 
-Each test runs against a temporary SQLite database to ensure isolation from development data.
-
-The tests verify:
+Tests verify the behaviour of:
 
 \begin{itemize}
 \item campaign CRUD operations
-\item session creation and retrieval
-\item encounter management
+\item session management
+\item encounter lifecycle
+\item participant creation
 \item event logging
 \item analytics endpoints
 \end{itemize}
 
 
-%------------------------------------------------
-\section{Limitations}
+The API was developed and tested locally using the FastAPI development
+server. At the time of writing the application has not been deployed to
+a public environment, although the project structure supports future
+deployment using containerisation or cloud hosting platforms such as
+Docker, AWS, Railway, or Render.
 
-Several limitations exist in the current implementation.
+%------------------------------------------------
+
+\section{Documentation}
+
+The API is documented using FastAPI's automatic OpenAPI generation.
+Interactive documentation is available via the Swagger interface during
+development, while a static ReDoc export is included with the submission:
+
+\begin{center}
+\url{docs/redoc.pdf}
+\end{center}
+
+%------------------------------------------------
+
+\section{Limitations and Future Work}
+
+Several limitations exist in the current implementation:
 
 \begin{itemize}
-\item Event sources and targets are currently stored as text rather than canonical character references.
-\item External rule databases for spells and attacks are not yet integrated.
-\item Authentication and multi-user support are not implemented.
+\item encounter simulation uses simplified combat rules
+\item authentication and multi-user support are not implemented
+\item external datasets are accessed remotely rather than locally cached
 \end{itemize}
 
+Future improvements could include richer simulation mechanics, improved
+analytics visualisation, user authentication, multi-DM campaign support,
+and deployment to cloud infrastructure.
 
 %------------------------------------------------
-\section{Future Work}
 
-Future improvements could include:
-
-\begin{itemize}
-\item Campaign character registries to avoid event logging inconsistencies.
-\item Integration with external DnD spell and monster databases.
-\item Authentication and user management.
-\item Deployment using containerisation or cloud infrastructure.
-\end{itemize}
-
-
-%------------------------------------------------
 \section{Conclusion}
 
-This project demonstrates the design and implementation of a RESTful API for managing tabletop campaign data. The system provides structured storage for campaign activity and enables analytics derived from recorded gameplay events.
+This project demonstrates the design and implementation of a RESTful API
+for managing tabletop campaign data. The system records gameplay through
+event-based logging and generates analytics by aggregating recorded
+events.
 
-The architecture supports extensibility and could be expanded with additional features such as character management and external rules integration.
+The layered architecture and modular design allow the system to be
+extended with additional gameplay mechanics, analytics capabilities,
+and deployment options.
 
+Overall, this project demonstrates how software engineering principles
+can be applied to the design of a flexible and extensible web service.
+
+%------------------------------------------------
+\section{Powerpoint Presentation}
+Here is the link to the PowerPoint presentation for the project:
+\begin{center}
+    \url{}
+\end{center}
+%------------------------------------------------
+\section{AI Declaration}
+
+Generative AI tools were used during development primarily as a
+programming assistant. AI was used to generate boilerplate code, review
+architectural decisions, comment + neaten code, suggest testing strategies, dataset discovery + importing
+ and provide feedback on documentation/report structure and content.
+
+All suggestions were manually reviewed and adapted before being
+integrated into the project. Final design decisions, implementation,
+and code structure were determined by the author.
 
 \end{document}
