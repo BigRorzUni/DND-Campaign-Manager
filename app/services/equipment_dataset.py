@@ -1,35 +1,46 @@
 import requests
 
+
 BASE_URL = "https://www.dnd5eapi.co/api/2014/equipment"
 
 
 class EquipmentDatasetService:
+    _equipment_index_cache: list[dict] | None = None
+    _equipment_detail_cache: dict[str, dict] = {}
+
     @staticmethod
-    def list_equipment():
+    def list_equipment_index():
+        if EquipmentDatasetService._equipment_index_cache is not None:
+            return EquipmentDatasetService._equipment_index_cache
+
         response = requests.get(BASE_URL, timeout=10)
         response.raise_for_status()
-        data = response.json()["results"]
-
-        results = []
-        for item in data:
-            detail = EquipmentDatasetService.get_equipment(item["index"])
-            results.append(EquipmentDatasetService.to_summary(detail))
-
+        results = response.json()["results"]
+        EquipmentDatasetService._equipment_index_cache = results
         return results
 
     @staticmethod
     def search_equipment(query: str):
-        all_equipment = EquipmentDatasetService.list_equipment()
+        q = query.lower().strip()
         return [
-            item for item in all_equipment
-            if query.lower() in item["name"].lower()
+            {
+                "api_index": item["index"],
+                "name": item["name"],
+            }
+            for item in EquipmentDatasetService.list_equipment_index()
+            if q in item["name"].lower()
         ][:25]
 
     @staticmethod
     def get_equipment(equipment_index: str):
+        if equipment_index in EquipmentDatasetService._equipment_detail_cache:
+            return EquipmentDatasetService._equipment_detail_cache[equipment_index]
+
         response = requests.get(f"{BASE_URL}/{equipment_index}", timeout=10)
         response.raise_for_status()
-        return response.json()
+        detail = response.json()
+        EquipmentDatasetService._equipment_detail_cache[equipment_index] = detail
+        return detail
 
     @staticmethod
     def to_summary(detail: dict) -> dict:
