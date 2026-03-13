@@ -65,3 +65,4 @@ alembic/versions/__pycache__/
 # Misc
 # =========================
 .cache/
+export_redoc_pdf.py
