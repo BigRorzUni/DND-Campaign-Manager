@@ -20,12 +20,31 @@ from app.services.encounter_state_service import recalculate_encounter_state
 from app.services.encounter_simulation_service import EncounterSimulationService
 
 
-DB_PATH = Path("dev.db")
+from pathlib import Path
 
+from app.core.config import settings
+
+
+def sqlite_path_from_url(database_url: str) -> Path:
+    prefix = "sqlite:///"
+    if not database_url.startswith(prefix):
+        raise RuntimeError("reset_and_seed_db.py currently only supports SQLite databases.")
+
+    raw_path = database_url[len(prefix):]
+    return Path(raw_path)
+
+def is_sqlite_url(database_url: str) -> bool:
+    return database_url.startswith("sqlite:///")
 
 def reset_database() -> None:
-    if DB_PATH.exists():
-        DB_PATH.unlink()
+    database_url = settings.DATABASE_URL
+
+    if is_sqlite_url(database_url):
+        db_path = sqlite_path_from_url(database_url)
+        db_path.parent.mkdir(parents=True, exist_ok=True)
+
+        if db_path.exists():
+            db_path.unlink()
 
     Base.metadata.drop_all(bind=engine)
     Base.metadata.create_all(bind=engine)
