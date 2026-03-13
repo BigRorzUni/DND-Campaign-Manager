@@ -3,6 +3,8 @@
 {% block title %}Home - DnD Campaign Manager{% endblock %}
 
 {% block content %}
+
+<!-- Home page for top-level campaign CRUD -->
 <section class="card">
     <h2 id="campaign-form-heading">Create Campaign</h2>
     <form id="campaign-form">
@@ -14,15 +16,18 @@
     </form>
 </section>
 
+<!-- Existing campaigns list -->
 <section class="card">
     <h2>Campaigns</h2>
     <div id="campaigns"></div>
 </section>
 
 <script>
+// Local cache supports edit mode and lookup by id without re-fetching.
 let campaignsCache = [];
 let editingCampaignId = null;
 
+// Generic JSON API helper with centralised error handling.
 async function api(path, options = {}) {
     const response = await fetch(path, {
         headers: { "Content-Type": "application/json" },
@@ -42,6 +47,7 @@ async function api(path, options = {}) {
     return response.json();
 }
 
+// Reset campaign form back to create mode.
 function resetCampaignForm() {
     editingCampaignId = null;
     document.getElementById("campaign-form").reset();
@@ -52,6 +58,7 @@ function resetCampaignForm() {
     document.getElementById("campaign-cancel-btn").style.display = "none";
 }
 
+// Populate form with existing campaign data for update workflow.
 function startEditCampaign(campaignId) {
     const campaign = campaignsCache.find(c => c.id === campaignId);
     if (!campaign) return;
@@ -71,6 +78,7 @@ function startEditCampaign(campaignId) {
     });
 }
 
+// Delete selected campaign and cascade refresh of list state.
 async function deleteCampaign(campaignId) {
     const campaign = campaignsCache.find(c => c.id === campaignId);
     const label = campaign ? campaign.name : `campaign ${campaignId}`;
@@ -94,6 +102,7 @@ async function deleteCampaign(campaignId) {
     }
 }
 
+// Load and render all campaigns from the API.
 async function loadCampaigns() {
     const data = await api("/api/v1/campaigns");
     campaignsCache = data;
@@ -120,6 +129,7 @@ async function loadCampaigns() {
     }
 }
 
+// Form handles both create and update depending on edit state.
 document.getElementById("campaign-form").addEventListener("submit", async (e) => {
     e.preventDefault();
 
@@ -148,8 +158,10 @@ document.getElementById("campaign-form").addEventListener("submit", async (e) =>
     }
 });
 
+// Cancel button restores create state.
 document.getElementById("campaign-cancel-btn").addEventListener("click", resetCampaignForm);
 
+// Initial page bootstrap.
 loadCampaigns();
 </script>
 {% endblock %}

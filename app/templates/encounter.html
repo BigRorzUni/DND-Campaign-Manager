@@ -4,8 +4,10 @@
 
 {% block content %}
 
+<!-- Encounter page UI for managing participants, event logs, simulation, and reviews -->
 <div id="encounter-page" data-encounter-id="{{ encounter_id }}">
 
+    <!-- Core encounter metadata loaded from API -->
     <section class="card">
         <h2 id="encounter-name">Encounter</h2>
         <p id="encounter-difficulty" class="muted"></p>
@@ -13,15 +15,18 @@
         <p id="encounter-notes" class="muted"></p>
     </section>
 
+    <!-- Visible only for simulated encounters -->
     <div id="simulation-controls" style="display:none; margin-top:12px;">
         <button type="button" id="run-simulation-btn">Run Simulation</button>
         <span id="simulation-status-text" class="muted" style="margin-left:8px;"></span>
     </div>
 
+    <!-- Participant management section -->
     <section class="card">
         <h2>Participants</h2>
         <div id="participants"></div>
 
+        <!-- Party participant form links encounter participants to persistent campaign characters -->
         <h3 id="party-participant-form-heading">Add Party Character</h3>
         <form id="participant-form">
             <input type="hidden" id="participant-edit-id" />
@@ -30,9 +35,11 @@
                 <option value="">Select character</option>
             </select>
 
+            <!-- Extra combat-state fields only shown once a character is selected -->
             <div id="party-character-extra-fields" style="display:none;">
                 <input id="participant-current-hp" type="number" placeholder="Current HP" />
 
+                <!-- Spell slot rows are shown only for levels the selected character can use -->
                 <div id="participant-slot-row-1" style="display:none;">
                     <input id="participant-slots-1" type="number" placeholder="Spell Slots L1" />
                 </div>
@@ -68,6 +75,7 @@
             </div>
         </form>
         
+    <!-- Enemy participant form supports importing monsters from external dataset -->
     <h3 id="custom-participant-form-heading">Add Enemy Participant</h3>
     <form id="custom-participant-form">
         <input type="hidden" id="custom-participant-edit-id" />
@@ -90,6 +98,7 @@
 
         <div id="monster-preview" class="muted"></div>
 
+        <!-- Imported monster fields are autofilled from dataset and partly locked for consistency -->
         <div id="custom-imported-fields" style="display:none;">
             <input id="custom-participant-name" placeholder="Name" required />
             <input id="custom-participant-class-name" placeholder="Class / type" />
@@ -97,6 +106,7 @@
             <input id="custom-participant-current-hp" type="number" placeholder="Current HP" />
             <input id="custom-participant-ac" type="number" placeholder="Armour Class" />
 
+            <!-- Spell slot rows shown only when monster spellcasting data includes them -->
             <div id="custom-participant-slot-row-1" style="display:none;">
                 <input id="custom-participant-slots-1" type="number" placeholder="Spell Slots L1" />
             </div>
@@ -133,7 +143,7 @@
     </form>
     </section>
 
-
+    <!-- Deterministic encounter analytics computed from stored events -->
     <section class="card">
         <h2>Encounter Review</h2>
 
@@ -148,6 +158,7 @@
         </div>
     </section>
 
+    <!-- LLM-generated interpretation of encounter balance -->
     <section class="card">
         <h2>AI Review</h2>
 
@@ -164,15 +175,18 @@
         </div>
     </section>
 
+    <!-- Event log and manual event creation/editing -->
     <section class="card">
         <h2>Events</h2>
         <div id="events"></div>
 
+        <!-- Duplicate simulation controls for convenience near event workflow -->
         <div id="simulation-controls" style="display:none; margin-top:12px;">
             <button type="button" id="run-simulation-btn">Run Simulation</button>
             <span id="simulation-status-text" class="muted" style="margin-left:8px;"></span>
         </div>
 
+        <!-- Manual event editing is disabled for simulated encounters -->
         <div id="simulated-event-lock-message" class="muted" style="display:none; margin-top:12px;">
             Events are generated automatically for simulated encounters.
         </div>
@@ -186,6 +200,7 @@
                 <option value="">Select source</option>
             </select>
 
+            <!-- Actions are loaded dynamically from the selected participant -->
             <label for="event-action-select">Action</label>
             <select id="event-action-select">
                 <option value="">Select action</option>
@@ -198,11 +213,13 @@
                 <option value="">Self / No target</option>
             </select>
 
+            <!-- Numeric amount field reused for damage/heal actions -->
             <div id="event-amount-container" style="display:none;">
                 <label for="event-amount" id="event-amount-label">Amount</label>
                 <input id="event-amount" type="number" min="0" placeholder="Amount" />
             </div>
 
+            <!-- Custom action UI allows freeform damage/healing/misc logging -->
             <div id="custom-action-fields" style="display:none;">
                 <label for="custom-damage">Damage</label>
                 <input id="custom-damage" type="number" min="0" placeholder="Damage" />
@@ -229,6 +246,7 @@
 <script>
 // ----------------------------- Page state -----------------------------
 
+// Local caches support edit mode, preserve selections, and reduce repeated API calls.
 let participantsCache = [];
 let eventsCache = [];
 let characterOptionsCache = [];
@@ -242,6 +260,7 @@ let monsterSearchResultsCache = [];
 let monsterSearchDebounceHandle = null;
 let selectedMonsterDetail = null;
 
+// campaignId is resolved from the encounter's parent session.
 let campaignId = null;
 
 const encounterId = Number(
@@ -282,6 +301,7 @@ function escapeHtml(value) {
 
 // ---------------------- Party participant helpers ---------------------
 
+// Hide character-derived combat state fields until a party character is selected.
 function hidePartyCharacterFields() {
     document.getElementById("party-character-extra-fields").style.display = "none";
     document.getElementById("participant-current-hp").value = "";
@@ -296,6 +316,7 @@ function hidePartyCharacterFields() {
     }
 }
 
+// Populate party participant form from the selected persistent character.
 function showPartyCharacterFieldsFor(character) {
     const extraFields = document.getElementById("party-character-extra-fields");
     extraFields.style.display = "block";
@@ -326,6 +347,7 @@ function showPartyCharacterFieldsFor(character) {
     }
 }
 
+// Character selection drives encounter-specific participant defaults.
 async function handlePartyCharacterSelection() {
     const selectedCharacterId = Number(
         document.getElementById("participant-character-id").value
@@ -347,6 +369,7 @@ async function handlePartyCharacterSelection() {
 
 // ------------------------ Monster import helpers ----------------------
 
+// Utility for toggling readonly state of imported monster-backed fields.
 function setMonsterReadonlyField(id, isReadonly) {
     const element = document.getElementById(id);
     if (!element) return;
@@ -361,6 +384,7 @@ function setMonsterReadonlyFields(isReadonly) {
     }
 }
 
+// Imported monster fields stay hidden until a monster has been selected.
 function setMonsterImportedFieldsVisible(visible) {
     const container = document.getElementById("custom-imported-fields");
     if (container) {
@@ -368,6 +392,7 @@ function setMonsterImportedFieldsVisible(visible) {
     }
 }
 
+// Monster API returns AC in multiple formats; normalise it for form use.
 function extractMonsterArmorClass(monster) {
     const ac = monster.armor_class;
 
@@ -388,6 +413,7 @@ function extractMonsterArmorClass(monster) {
     return null;
 }
 
+// Monsters may carry spellcasting inside special_abilities.
 function extractMonsterSpellcasting(monster) {
     if (!Array.isArray(monster.special_abilities)) {
         return null;
@@ -402,7 +428,7 @@ function extractMonsterSpellcasting(monster) {
     return null;
 }
 
-
+// Monster autocomplete search against external dataset.
 async function searchMonstersAutocomplete(query) {
     const trimmed = query.trim();
     const autocomplete = document.getElementById("monster-autocomplete");
@@ -463,6 +489,7 @@ async function searchMonstersAutocomplete(query) {
     }
 }
 
+// Preview summarises imported monster before participant creation.
 async function loadSelectedMonsterPreview(monsterIndex) {
     const preview = document.getElementById("monster-preview");
 
@@ -498,6 +525,7 @@ async function loadSelectedMonsterPreview(monsterIndex) {
     setMonsterImportedFieldsVisible(true);
 }
 
+// Autofill imported monster form and lock dataset-backed values.
 function autofillMonsterFields(monster) {
     const armorClass = extractMonsterArmorClass(monster);
 
@@ -538,10 +566,12 @@ function autofillMonsterFields(monster) {
 
 // ---------------------------- Common helpers --------------------------
 
+// Shared helper for rendering participant spell slot state.
 function getParticipantSlotValue(participant, level) {
     return participant?.[`spell_slots_${level}`] ?? 0;
 }
 
+// Render remaining slots compactly in participant list.
 function renderRemainingSlots(participant) {
     const parts = [];
 
@@ -557,6 +587,7 @@ function renderRemainingSlots(participant) {
 
 // ----------------------------- Action UI ------------------------------
 
+// Reset event form field groups before showing action-specific UI.
 function resetEventEffectFields() {
     document.getElementById("event-amount-container").style.display = "none";
     document.getElementById("custom-action-fields").style.display = "none";
@@ -570,11 +601,13 @@ function resetEventEffectFields() {
     document.getElementById("custom-healing").value = "";
 }
 
+// Current selected action option from dynamic action list.
 function getSelectedActionOption() {
     const select = document.getElementById("event-action-select");
     return select.options[select.selectedIndex] || null;
 }
 
+// Action metadata controls which event form fields are shown.
 function updateActionDrivenFields() {
     resetEventEffectFields();
 
@@ -608,6 +641,7 @@ function updateActionDrivenFields() {
     // MISC actions: no numeric amount, just note
 }
 
+// Clear action UI when source changes or no actions exist.
 function clearActionSelection(message = "") {
     const actionSelect = document.getElementById("event-action-select");
     const actionDescription = document.getElementById("action-description");
@@ -619,6 +653,7 @@ function clearActionSelection(message = "") {
     resetEventEffectFields();
 }
 
+// Event payload stores action_type + action_ref rather than hardcoding spell-only fields.
 function getSelectedAction() {
     const select = document.getElementById("event-action-select");
     const option = select.options[select.selectedIndex];
@@ -636,6 +671,7 @@ function getSelectedAction() {
     };
 }
 
+// Show action summary and trigger action-specific UI changes.
 function updateActionDescription() {
     const actionSelect = document.getElementById("event-action-select");
     const actionDescription = document.getElementById("action-description");
@@ -659,6 +695,7 @@ function updateActionDescription() {
     updateActionDrivenFields();
 }
 
+// Source participant determines the available action list.
 async function loadActionsForParticipant(participantId, selectedActionRef = null) {
     clearActionSelection();
 
@@ -700,6 +737,7 @@ async function loadActionsForParticipant(participantId, selectedActionRef = null
 
 // ----------------------------- Event form -----------------------------
 
+// Rebuild source and target dropdowns whenever participants change.
 function populateEventParticipantSelectors() {
     const sourceSelect = document.getElementById("event-source-select");
     const targetSelect = document.getElementById("event-target-select");
@@ -722,6 +760,7 @@ function populateEventParticipantSelectors() {
     }
 }
 
+// Convert form state into backend event payload.
 function buildEventPayload() {
     const sourceParticipantId = document.getElementById("event-source-select").value
         ? Number(document.getElementById("event-source-select").value)
@@ -736,7 +775,7 @@ function buildEventPayload() {
 
     if (!sourceParticipantId) {
         throw new Error("Please select a source.");
-    }
+        }
 
     if (!option || !option.value) {
         throw new Error("Please select an action.");
@@ -811,6 +850,7 @@ function buildEventPayload() {
     };
 }
 
+// Reset manual event form to default create state.
 function resetEventForm() {
     editingEventId = null;
 
@@ -827,6 +867,7 @@ function resetEventForm() {
 
 // -------------------------- Participant forms -------------------------
 
+// Reset both participant forms and clear all imported monster state.
 function resetParticipantForms() {
     editingParticipantId = null;
     editingParticipantType = null;
@@ -871,6 +912,7 @@ function resetParticipantForms() {
     }
 }
 
+// Load existing participant into correct form depending on PARTY vs ENEMY.
 async function startEditParticipant(participantId) {
     const p = participantsCache.find(x => x.id === participantId);
     if (!p) return;
@@ -936,7 +978,6 @@ async function startEditParticipant(participantId) {
         behavior: "smooth"
     });
 }
-
 
 // Delete a participant, then refresh all dependent UI sections.
 async function deleteParticipant(participantId) {
@@ -1116,6 +1157,7 @@ async function loadEncounter() {
             ? `Expected difficulty: ${encounter.expected_difficulty}`
             : "Expected difficulty not set.";
 
+    // Rounds are only relevant for simulated encounters.
     if (encounter.is_simulated && encounter.rounds !== null && encounter.rounds !== undefined) {
         document.getElementById("encounter-rounds").textContent = `Rounds: ${encounter.rounds}`;
     } else {
@@ -1245,6 +1287,7 @@ async function loadParticipants() {
     }
 }
 
+// Toggle manual event UI based on encounter type.
 function setEventEditingEnabled(enabled) {
     const form = document.getElementById("event-form");
     const heading = document.getElementById("event-form-heading");
@@ -1267,6 +1310,7 @@ function setEventEditingEnabled(enabled) {
     }
 }
 
+// Convenience helper so create/edit/delete guards stay in sync with backend rules.
 async function isSimulatedEncounter() {
     const encounter = await api(`/api/v1/encounters/${encounterId}`);
     return !!encounter.is_simulated;
@@ -1286,6 +1330,7 @@ async function loadEvents() {
         return;
     }
 
+    // Events are grouped by round number to support simulation playback and readability.
     const grouped = new Map();
 
     for (const e of events) {
@@ -1380,6 +1425,7 @@ async function loadEncounterReview() {
 // Show party participant extra fields when a character is selected.
 document.getElementById("participant-character-id").addEventListener("change", handlePartyCharacterSelection);
 
+// Simulation endpoint generates rounds, events, and state updates.
 document.getElementById("run-simulation-btn").addEventListener("click", async () => {
     const button = document.getElementById("run-simulation-btn");
     button.disabled = true;
@@ -1435,6 +1481,7 @@ document.getElementById("participant-form").addEventListener("submit", async (e)
         return;
     }
 
+    // Creates encounter-specific participant state from persistent character data.
     const payload = {
         character_id: Number(selectedCharacterId),
         participant_type: "PARTY",
@@ -1505,6 +1552,7 @@ document.getElementById("custom-participant-form").addEventListener("submit", as
         return;
     }
 
+    // Imported monster becomes an encounter participant snapshot.
     const payload = {
         character_id: null,
         monster_index: selectedMonsterIndex,
