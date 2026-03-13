@@ -37,7 +37,12 @@
             <input type="hidden" id="character-id" />
 
             <input id="character-name" placeholder="Character name" required />
-            <input id="character-class-name" placeholder="Class name" />
+
+            <label for="character-class-name">Class</label>
+            <select id="character-class-name">
+                <option value="">Select class</option>
+            </select>
+
             <input id="character-level" type="number" placeholder="Level" min="1" />
             <input id="character-max-hp" type="number" placeholder="Max HP" min="0" />
             <input id="character-current-hp" type="number" placeholder="Current HP" min="0" />
@@ -62,38 +67,64 @@
     </section>
 
     <section class="card">
-        <h2>Character Spells</h2>
+        <h2>Character Loadout</h2>
 
-        <form id="character-spell-form">
-            <label for="spell-character-select">Character</label>
-            <select id="spell-character-select" required>
-                <option value="">Select character</option>
-            </select>
+        <label for="loadout-character-select">Character</label>
+        <select id="loadout-character-select">
+            <option value="">Select character</option>
+        </select>
 
-            <label for="spell-search-input">Spell search</label>
-            <div style="position: relative;">
-                <input
-                    id="spell-search-input"
-                    type="text"
-                    placeholder="Start typing a spell name..."
-                    autocomplete="off"
-                />
-                <input type="hidden" id="selected-spell-index" />
-                <div
-                    id="spell-autocomplete"
-                    style="display:none; position:absolute; top:100%; left:0; right:0; z-index:10; background:white; border:1px solid #ccc; border-top:none; max-height:240px; overflow-y:auto;"
-                ></div>
-            </div>
+        <div id="loadout-empty-state" class="muted">
+            Select a character to view and manage spells and equipment.
+        </div>
 
-            <div id="spell-preview" class="muted"></div>
+        <div id="loadout-content" style="display:none;">
+            <h3>Known Spells</h3>
+            <div id="character-spells-list" class="muted">Loading...</div>
 
-            <textarea id="character-spell-notes" placeholder="Notes about this learnt spell (optional)"></textarea>
+            <form id="character-spell-form">
+                <label for="spell-search-input">Add spell</label>
+                <div style="position: relative;">
+                    <input
+                        id="spell-search-input"
+                        type="text"
+                        placeholder="Start typing a spell name..."
+                        autocomplete="off"
+                    />
+                    <input type="hidden" id="selected-spell-index" />
+                    <div
+                        id="spell-autocomplete"
+                        style="display:none; position:absolute; top:100%; left:0; right:0; z-index:10; background:white; border:1px solid #ccc; border-top:none; max-height:240px; overflow-y:auto;"
+                    ></div>
+                </div>
 
-            <button type="submit">Add Spell to Character</button>
-        </form>
+                <div id="spell-preview" class="muted"></div>
+                <button type="submit">Add Spell</button>
+            </form>
 
-        <h3>Learnt Spells</h3>
-        <div id="character-spells-list" class="muted">Select a character to view spells.</div>
+            <h3>Equipment</h3>
+            <div id="character-equipment-list" class="muted">Loading...</div>
+
+            <form id="character-equipment-form">
+                <label for="equipment-search-input">Add equipment</label>
+                <div style="position: relative;">
+                    <input
+                        id="equipment-search-input"
+                        type="text"
+                        placeholder="Start typing equipment..."
+                        autocomplete="off"
+                    />
+                    <input type="hidden" id="selected-equipment-index" />
+                    <div
+                        id="equipment-autocomplete"
+                        style="display:none; position:absolute; top:100%; left:0; right:0; z-index:10; background:white; border:1px solid #ccc; border-top:none; max-height:240px; overflow-y:auto;"
+                    ></div>
+                </div>
+
+                <div id="equipment-preview" class="muted"></div>
+                <button type="submit">Add Equipment</button>
+            </form>
+        </div>
     </section>
 
     <section class="card">
@@ -124,6 +155,7 @@ const campaignId = Number(
 
 let editingCharacterId = null;
 let charactersCache = [];
+let classesCache = [];
 
 let editingSessionId = null;
 let sessionsCache = [];
@@ -131,6 +163,10 @@ let sessionsCache = [];
 let spellSearchResultsCache = [];
 let selectedSpellDetail = null;
 let spellSearchDebounceHandle = null;
+
+let equipmentSearchResultsCache = [];
+let selectedEquipmentDetail = null;
+let equipmentSearchDebounceHandle = null;
 
 async function api(path, options = {}) {
     const response = await fetch(path, {
@@ -171,11 +207,84 @@ function renderCharacterSpellSlots(character) {
     return rows.length ? rows.join(" | ") : "No spell slots";
 }
 
+function getSelectedLoadoutCharacterId() {
+    const value = document.getElementById("loadout-character-select").value;
+    return value ? Number(value) : null;
+}
+
+function getSelectedLoadoutCharacter() {
+    const id = getSelectedLoadoutCharacterId();
+    if (!id) return null;
+    return charactersCache.find(c => c.id === id) || null;
+}
+
+function resetSpellSearch() {
+    document.getElementById("spell-search-input").value = "";
+    document.getElementById("selected-spell-index").value = "";
+    document.getElementById("spell-preview").textContent = "";
+
+    const autocomplete = document.getElementById("spell-autocomplete");
+    autocomplete.innerHTML = "";
+    autocomplete.style.display = "none";
+
+    spellSearchResultsCache = [];
+    selectedSpellDetail = null;
+}
+
+function resetEquipmentSearch() {
+    document.getElementById("equipment-search-input").value = "";
+    document.getElementById("selected-equipment-index").value = "";
+    document.getElementById("equipment-preview").textContent = "";
+
+    const autocomplete = document.getElementById("equipment-autocomplete");
+    autocomplete.innerHTML = "";
+    autocomplete.style.display = "none";
+
+    equipmentSearchResultsCache = [];
+    selectedEquipmentDetail = null;
+}
+
+function updateLoadoutVisibility() {
+    const characterId = getSelectedLoadoutCharacterId();
+    const emptyState = document.getElementById("loadout-empty-state");
+    const content = document.getElementById("loadout-content");
+
+    if (!characterId) {
+        emptyState.style.display = "block";
+        content.style.display = "none";
+        return;
+    }
+
+    emptyState.style.display = "none";
+    content.style.display = "block";
+}
+
 async function loadCampaign() {
     const campaign = await api(`/api/v1/campaigns/${campaignId}`);
     document.getElementById("campaign-name").textContent = campaign.name;
     document.getElementById("campaign-description").textContent =
         campaign.description || "No description provided.";
+}
+
+async function loadClassOptions() {
+    const classes = await api(`/api/v1/classes`);
+    classesCache = classes;
+
+    const select = document.getElementById("character-class-name");
+    const currentValue = select.value;
+
+    select.innerHTML = `<option value="">Select class</option>`;
+
+    for (const cls of classes) {
+        const option = document.createElement("option");
+        option.value = cls.name;
+        option.textContent = cls.name;
+        select.appendChild(option);
+    }
+
+    if (currentValue && classes.some(c => c.name === currentValue)) {
+        select.value = currentValue;
+    }
 }
 
 async function loadSessions() {
@@ -267,8 +376,8 @@ async function deleteSession(sessionId) {
     }
 }
 
-function populateCharacterSpellCharacterSelect() {
-    const select = document.getElementById("spell-character-select");
+function populateLoadoutCharacterSelect() {
+    const select = document.getElementById("loadout-character-select");
     const currentValue = select.value;
 
     select.innerHTML = `<option value="">Select character</option>`;
@@ -295,11 +404,12 @@ async function loadCharacters() {
     const container = document.getElementById("characters");
     container.innerHTML = "";
 
-    populateCharacterSpellCharacterSelect();
+    populateLoadoutCharacterSelect();
 
     if (!characters.length) {
         container.innerHTML = "<p class='muted'>No characters yet.</p>";
         document.getElementById("character-spells-list").innerHTML = "<p class='muted'>No characters yet.</p>";
+        document.getElementById("character-equipment-list").innerHTML = "<p class='muted'>No characters yet.</p>";
         return;
     }
 
@@ -323,9 +433,11 @@ async function loadCharacters() {
         container.appendChild(div);
     }
 
-    const selectedCharacterId = document.getElementById("spell-character-select").value;
+    const selectedCharacterId = getSelectedLoadoutCharacterId();
     if (selectedCharacterId) {
-        await loadCharacterSpells(Number(selectedCharacterId));
+        await loadCharacterLoadout(selectedCharacterId);
+    } else {
+        updateLoadoutVisibility();
     }
 }
 
@@ -376,29 +488,6 @@ function resetCharacterForm() {
     document.getElementById("character-cancel-btn").style.display = "none";
 }
 
-function resetCharacterSpellForm(keepCharacterSelection = true) {
-    const characterSelect = document.getElementById("spell-character-select");
-    const currentCharacter = characterSelect.value;
-
-    document.getElementById("spell-search-input").value = "";
-    document.getElementById("selected-spell-index").value = "";
-    document.getElementById("character-spell-notes").value = "";
-    document.getElementById("spell-preview").textContent = "";
-
-    const autocomplete = document.getElementById("spell-autocomplete");
-    autocomplete.innerHTML = "";
-    autocomplete.style.display = "none";
-
-    selectedSpellDetail = null;
-    spellSearchResultsCache = [];
-
-    if (!keepCharacterSelection) {
-        characterSelect.value = "";
-    } else {
-        characterSelect.value = currentCharacter;
-    }
-}
-
 async function searchSpellsAutocomplete(query) {
     const trimmed = query.trim();
     const autocomplete = document.getElementById("spell-autocomplete");
@@ -415,16 +504,54 @@ async function searchSpellsAutocomplete(query) {
         return;
     }
 
-    const results = await api(`/api/v1/spells?q=${encodeURIComponent(trimmed)}`);
-    spellSearchResultsCache = results;
-
-    if (!results.length) {
-        autocomplete.innerHTML = `<div style="padding:8px;" class="muted">No matching spells</div>`;
+    const character = getSelectedLoadoutCharacter();
+    if (!character) {
+        autocomplete.innerHTML = `<div style="padding:8px;" class="muted">Select a character first</div>`;
         autocomplete.style.display = "block";
         return;
     }
 
-    autocomplete.innerHTML = results.slice(0, 10).map(spell => `
+    if (!character.class_name) {
+        autocomplete.innerHTML = `<div style="padding:8px;" class="muted">Selected character has no class</div>`;
+        autocomplete.style.display = "block";
+        return;
+    }
+
+    const results = await api(`/api/v1/spells?q=${encodeURIComponent(trimmed)}`);
+    const knownSpellIndices = new Set(character.spell_indices || []);
+
+    const filtered = results.filter(spell => {
+        if (knownSpellIndices.has(spell.index)) {
+            return false;
+        }
+
+        const classAllowed =
+            Array.isArray(spell.classes) &&
+            spell.classes.some(cls => cls.toLowerCase() === character.class_name.toLowerCase());
+
+        if (!classAllowed) {
+            return false;
+        }
+
+        const spellLevel = Number(spell.level ?? 0);
+
+        if (spellLevel === 0) {
+            return true;
+        }
+
+        const slotValue = Number(character[`spell_slots_${spellLevel}`] ?? 0);
+        return slotValue > 0;
+    });
+
+    spellSearchResultsCache = filtered;
+
+    if (!filtered.length) {
+        autocomplete.innerHTML = `<div style="padding:8px;" class="muted">No matching spells for ${escapeHtml(character.class_name)} with available spell slots</div>`;
+        autocomplete.style.display = "block";
+        return;
+    }
+
+    autocomplete.innerHTML = filtered.slice(0, 10).map(spell => `
         <div
             class="spell-autocomplete-item"
             data-index="${escapeHtml(spell.index)}"
@@ -469,10 +596,89 @@ async function loadSelectedSpellPreview(spellIndex) {
         : (detail.brief_description || "");
 
     const schoolName = detail.school?.name || detail.school || "";
+    const classNames = Array.isArray(detail.classes)
+        ? detail.classes.map(c => c.name || c).filter(Boolean).join(", ")
+        : "";
+
     preview.textContent =
         `${detail.name} | Level ${detail.level}` +
         `${schoolName ? ` | ${schoolName}` : ""}` +
+        `${classNames ? ` | ${classNames}` : ""}` +
         `${description ? ` — ${description}` : ""}`;
+}
+
+async function searchEquipmentAutocomplete(query) {
+    const trimmed = query.trim();
+    const autocomplete = document.getElementById("equipment-autocomplete");
+    const preview = document.getElementById("equipment-preview");
+
+    document.getElementById("selected-equipment-index").value = "";
+    selectedEquipmentDetail = null;
+    preview.textContent = "";
+
+    if (!trimmed) {
+        equipmentSearchResultsCache = [];
+        autocomplete.innerHTML = "";
+        autocomplete.style.display = "none";
+        return;
+    }
+
+    const results = await api(`/api/v1/equipment?q=${encodeURIComponent(trimmed)}`);
+    equipmentSearchResultsCache = results;
+
+    if (!results.length) {
+        autocomplete.innerHTML = `<div style="padding:8px;" class="muted">No matching equipment</div>`;
+        autocomplete.style.display = "block";
+        return;
+    }
+
+    autocomplete.innerHTML = results.slice(0, 10).map(item => `
+        <div
+            class="equipment-autocomplete-item"
+            data-index="${escapeHtml(item.api_index)}"
+            style="padding:8px; border-bottom:1px solid #eee; cursor:pointer;"
+        >
+            <strong>${escapeHtml(item.name)}</strong>
+            <span class="muted">${item.category ? ` | ${escapeHtml(item.category)}` : ""}</span><br>
+            <span class="muted">${escapeHtml(item.brief_description || "")}</span>
+        </div>
+    `).join("");
+
+    autocomplete.style.display = "block";
+
+    for (const item of autocomplete.querySelectorAll(".equipment-autocomplete-item")) {
+        item.addEventListener("click", async () => {
+            const equipmentIndex = item.dataset.index;
+            const equipment = equipmentSearchResultsCache.find(e => e.api_index === equipmentIndex);
+
+            document.getElementById("selected-equipment-index").value = equipmentIndex;
+            document.getElementById("equipment-search-input").value = equipment ? equipment.name : equipmentIndex;
+            autocomplete.style.display = "none";
+
+            await loadSelectedEquipmentPreview(equipmentIndex);
+        });
+    }
+}
+
+async function loadSelectedEquipmentPreview(equipmentIndex) {
+    const preview = document.getElementById("equipment-preview");
+
+    if (!equipmentIndex) {
+        selectedEquipmentDetail = null;
+        preview.textContent = "";
+        return;
+    }
+
+    const detail = await api(`/api/v1/equipment/${encodeURIComponent(equipmentIndex)}`);
+    selectedEquipmentDetail = detail;
+
+    preview.textContent =
+        `${detail.name}` +
+        `${detail.category ? ` | ${detail.category}` : ""}` +
+        `${detail.weapon_category ? ` | ${detail.weapon_category}` : ""}` +
+        `${detail.damage_dice ? ` | ${detail.damage_dice}` : ""}` +
+        `${detail.damage_type ? ` ${detail.damage_type}` : ""}` +
+        `${detail.brief_description ? ` — ${detail.brief_description}` : ""}`;
 }
 
 async function loadCharacterSpells(characterId) {
@@ -486,7 +692,7 @@ async function loadCharacterSpells(characterId) {
     const spells = await api(`/api/v1/characters/${characterId}/spells`);
 
     if (!spells.length) {
-        container.innerHTML = "<p class='muted'>No learnt spells yet.</p>";
+        container.innerHTML = "<p class='muted'>No known spells yet.</p>";
         return;
     }
 
@@ -497,23 +703,90 @@ async function loadCharacterSpells(characterId) {
                 Level ${escapeHtml(spell.spell_level)}
                 ${spell.spell_index ? ` | ${escapeHtml(spell.spell_index)}` : ""}
             </span><br>
-            <span class="muted">${escapeHtml(spell.brief_description || spell.notes || "")}</span><br>
-            ${spell.notes ? `<span class="muted">Notes: ${escapeHtml(spell.notes)}</span><br>` : ""}
-            <button type="button" onclick="removeCharacterSpell(${characterId}, ${spell.id}, ${JSON.stringify(spell.spell_name_snapshot)})">Remove</button>
+            <span class="muted">${escapeHtml(spell.brief_description || "")}</span><br>
+            <button
+                type="button"
+                onclick="removeCharacterSpell(${characterId}, '${escapeHtml(spell.spell_index)}', '${escapeHtml(spell.spell_name_snapshot)}')"
+            >
+                Remove
+            </button>
         </div>
     `).join("");
 }
 
-async function removeCharacterSpell(characterId, spellId, spellName) {
+async function loadCharacterEquipment(characterId) {
+    const container = document.getElementById("character-equipment-list");
+
+    if (!characterId) {
+        container.innerHTML = "<p class='muted'>Select a character to view equipment.</p>";
+        return;
+    }
+
+    const equipment = await api(`/api/v1/characters/${characterId}/equipment`);
+
+    if (!equipment.length) {
+        container.innerHTML = "<p class='muted'>No equipment yet.</p>";
+        return;
+    }
+
+    container.innerHTML = equipment.map(item => `
+        <div class="item">
+            <strong>${escapeHtml(item.equipment_name_snapshot)}</strong><br>
+            <span class="muted">
+                ${item.category ? escapeHtml(item.category) : ""}
+                ${item.weapon_category ? ` | ${escapeHtml(item.weapon_category)}` : ""}
+                ${item.armor_category ? ` | ${escapeHtml(item.armor_category)}` : ""}
+            </span><br>
+            <span class="muted">
+                ${item.damage_dice ? escapeHtml(item.damage_dice) : ""}
+                ${item.damage_type ? ` ${escapeHtml(item.damage_type)}` : ""}
+                ${item.armor_class_base !== null && item.armor_class_base !== undefined ? ` | AC ${escapeHtml(item.armor_class_base)}` : ""}
+            </span><br>
+            <span class="muted">${escapeHtml(item.brief_description || "")}</span><br>
+            <button
+                type="button"
+                onclick="removeCharacterEquipment(${getSelectedLoadoutCharacterId()}, '${escapeHtml(item.equipment_index)}', '${escapeHtml(item.equipment_name_snapshot)}')"
+            >
+                Remove
+            </button>
+        </div>
+    `).join("");
+}
+
+
+async function loadCharacterLoadout(characterId) {
+    updateLoadoutVisibility();
+    await loadCharacterSpells(characterId);
+    await loadCharacterEquipment(characterId);
+}
+
+async function removeCharacterSpell(characterId, spellIndex, spellName) {
     if (!confirm(`Remove ${spellName} from this character?`)) {
         return;
     }
 
     try {
-        await api(`/api/v1/characters/${characterId}/spells/${spellId}`, {
-            method: "DELETE"
-        });
+        await api(
+            `/api/v1/characters/${characterId}/spells/${encodeURIComponent(spellIndex)}`,
+            { method: "DELETE" }
+        );
         await loadCharacterSpells(characterId);
+    } catch (err) {
+        alert(err.message);
+    }
+}
+
+async function removeCharacterEquipment(characterId, equipmentIndex, equipmentName) {
+    if (!confirm(`Remove ${equipmentName} from this character?`)) {
+        return;
+    }
+
+    try {
+        await api(
+            `/api/v1/characters/${characterId}/equipment/${encodeURIComponent(equipmentIndex)}`,
+            { method: "DELETE" }
+        );
+        await loadCharacterEquipment(characterId);
     } catch (err) {
         alert(err.message);
     }
@@ -651,7 +924,6 @@ document.getElementById("character-form").addEventListener("submit", async (e) =
         armor_class: document.getElementById("character-ac").value
             ? Number(document.getElementById("character-ac").value)
             : null,
-
         spell_slots_1: document.getElementById("character-slots-1").value
             ? Number(document.getElementById("character-slots-1").value)
             : null,
@@ -679,7 +951,6 @@ document.getElementById("character-form").addEventListener("submit", async (e) =
         spell_slots_9: document.getElementById("character-slots-9").value
             ? Number(document.getElementById("character-slots-9").value)
             : null,
-
         notes: document.getElementById("character-notes").value || null
     };
 
@@ -703,9 +974,19 @@ document.getElementById("character-form").addEventListener("submit", async (e) =
     }
 });
 
-document.getElementById("spell-character-select").addEventListener("change", async (e) => {
-    const characterId = e.target.value ? Number(e.target.value) : null;
-    await loadCharacterSpells(characterId);
+document.getElementById("loadout-character-select").addEventListener("change", async () => {
+    resetSpellSearch();
+    resetEquipmentSearch();
+
+    const characterId = getSelectedLoadoutCharacterId();
+    if (!characterId) {
+        updateLoadoutVisibility();
+        document.getElementById("character-spells-list").innerHTML = "<p class='muted'>Select a character to view spells.</p>";
+        document.getElementById("character-equipment-list").innerHTML = "<p class='muted'>Select a character to view equipment.</p>";
+        return;
+    }
+
+    await loadCharacterLoadout(characterId);
 });
 
 document.getElementById("spell-search-input").addEventListener("input", (e) => {
@@ -727,22 +1008,43 @@ document.getElementById("spell-search-input").addEventListener("input", (e) => {
     }, 250);
 });
 
-document.addEventListener("click", (e) => {
-    const autocomplete = document.getElementById("spell-autocomplete");
-    const input = document.getElementById("spell-search-input");
+document.getElementById("equipment-search-input").addEventListener("input", (e) => {
+    const query = e.target.value;
 
-    if (!autocomplete.contains(e.target) && e.target !== input) {
-        autocomplete.style.display = "none";
+    if (equipmentSearchDebounceHandle) {
+        clearTimeout(equipmentSearchDebounceHandle);
+    }
+
+    equipmentSearchDebounceHandle = setTimeout(async () => {
+        try {
+            await searchEquipmentAutocomplete(query);
+        } catch (err) {
+            const autocomplete = document.getElementById("equipment-autocomplete");
+            autocomplete.innerHTML = `<div style="padding:8px;" class="muted">Search failed</div>`;
+            autocomplete.style.display = "block";
+            document.getElementById("equipment-preview").textContent = err.message;
+        }
+    }, 250);
+});
+
+document.addEventListener("click", (e) => {
+    const spellAutocomplete = document.getElementById("spell-autocomplete");
+    const spellInput = document.getElementById("spell-search-input");
+    if (!spellAutocomplete.contains(e.target) && e.target !== spellInput) {
+        spellAutocomplete.style.display = "none";
+    }
+
+    const equipmentAutocomplete = document.getElementById("equipment-autocomplete");
+    const equipmentInput = document.getElementById("equipment-search-input");
+    if (!equipmentAutocomplete.contains(e.target) && e.target !== equipmentInput) {
+        equipmentAutocomplete.style.display = "none";
     }
 });
 
 document.getElementById("character-spell-form").addEventListener("submit", async (e) => {
     e.preventDefault();
 
-    const characterId = document.getElementById("spell-character-select").value
-        ? Number(document.getElementById("spell-character-select").value)
-        : null;
-
+    const characterId = getSelectedLoadoutCharacterId();
     const spellIndex = document.getElementById("selected-spell-index").value || null;
 
     if (!characterId) {
@@ -759,13 +1061,43 @@ document.getElementById("character-spell-form").addEventListener("submit", async
         await api(`/api/v1/characters/${characterId}/spells`, {
             method: "POST",
             body: JSON.stringify({
-                spell_index: spellIndex,
-                notes: document.getElementById("character-spell-notes").value || null
+                spell_index: spellIndex
             })
         });
 
-        resetCharacterSpellForm(true);
+        resetSpellSearch();
         await loadCharacterSpells(characterId);
+    } catch (err) {
+        alert(err.message);
+    }
+});
+
+document.getElementById("character-equipment-form").addEventListener("submit", async (e) => {
+    e.preventDefault();
+
+    const characterId = getSelectedLoadoutCharacterId();
+    const equipmentIndex = document.getElementById("selected-equipment-index").value || null;
+
+    if (!characterId) {
+        alert("Please select a character.");
+        return;
+    }
+
+    if (!equipmentIndex) {
+        alert("Please choose equipment.");
+        return;
+    }
+
+    try {
+        await api(`/api/v1/characters/${characterId}/equipment`, {
+            method: "POST",
+            body: JSON.stringify({
+                equipment_index: equipmentIndex
+            })
+        });
+
+        resetEquipmentSearch();
+        await loadCharacterEquipment(characterId);
     } catch (err) {
         alert(err.message);
     }
@@ -776,6 +1108,7 @@ document.getElementById("character-cancel-btn").addEventListener("click", resetC
 
 async function init() {
     await loadCampaign();
+    await loadClassOptions();
     await loadSessions();
     await loadCharacters();
     await loadTimePlayed();
@@ -783,7 +1116,9 @@ async function init() {
     await loadDamageTaken();
     await loadHealingReceived();
     await loadSpellUsage();
-    resetCharacterSpellForm(true);
+    updateLoadoutVisibility();
+    resetSpellSearch();
+    resetEquipmentSearch();
 }
 
 init();

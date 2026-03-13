@@ -1,5 +1,6 @@
 from sqlalchemy import ForeignKey, Integer, String, JSON
 from sqlalchemy.orm import Mapped, mapped_column, relationship
+from sqlalchemy.ext.mutable import MutableList
 
 from app.db.base import Base
 
@@ -23,8 +24,16 @@ class Character(Base):
     armor_class: Mapped[int | None] = mapped_column(Integer)
     notes: Mapped[str | None] = mapped_column(String(2000))
 
-    spell_indices: Mapped[list[str]] = mapped_column(JSON, nullable=False, default=list)
-    equipment_indices: Mapped[list[str]] = mapped_column(JSON, nullable=False, default=list)
+    spell_indices: Mapped[list[str]] = mapped_column(
+        MutableList.as_mutable(JSON),
+        nullable=False,
+        default=list,
+    )
+    equipment_indices: Mapped[list[str]] = mapped_column(
+        MutableList.as_mutable(JSON),
+        nullable=False,
+        default=list,
+    )
 
     spell_slots_1: Mapped[int | None] = mapped_column(nullable=True)
     spell_slots_2: Mapped[int | None] = mapped_column(nullable=True)
