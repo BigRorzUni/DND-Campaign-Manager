@@ -13,6 +13,44 @@ The service is implemented using **FastAPI**, **SQLAlchemy**, and **SQLite**, fo
 
 ## Running the API
 
+### Live Deployment
+Live demo accessible at:
+```bash
+https://dnd-campaign-manager-production.up.railway.app
+```
+
+### Running with Docker
+Build the image:
+
+```bash
+docker build -t dnd-campaign-manager .
+```
+
+Seed the database:
+
+```bash
+docker run --rm \
+  --env-file .env \
+  dnd-campaign-manager \
+  python reset_and_seed_db.py
+```
+
+Start the application:
+
+```bash
+docker run -d \
+  --name dnd-campaign-manager-app \
+  -p 8000:8000 \
+  --env-file .env \
+  dnd-campaign-manager
+```
+
+Open the app at:
+
+```text
+http://127.0.0.1:8000
+```
+### Running Locally
 Create a virtual environment:
 
 ```bash
@@ -32,7 +70,19 @@ Run the server:
 uvicorn app.main:app --reload
 ```
 
-Access the API at:
+Create  .env file:
+```bash
+DATABASE_URL=sqlite:///./dev.db
+OPENAI_API_KEY=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
+OPENAI_MODEL=gpt-4o-mini
+AI_REVIEW_ENABLED=true
+```
+Initialise database (if you want a demo campaign)
+```
+python reset_and_seed_db.py
+```
+
+Access the app at:
 
 ```
 http://127.0.0.1:8000
