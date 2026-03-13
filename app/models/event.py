@@ -30,7 +30,7 @@ class Event(Base):
 
     amount: Mapped[int | None] = mapped_column(Integer, nullable=True)
 
-    # New: used by simulation log grouping
+    # used by simulation log grouping
     round_number: Mapped[int | None] = mapped_column(Integer, nullable=True)
 
     action_type: Mapped[str | None] = mapped_column(String(50), nullable=True)

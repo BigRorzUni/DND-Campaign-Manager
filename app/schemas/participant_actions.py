@@ -1,4 +1,3 @@
-# app/schemas/action.py
 from pydantic import BaseModel
 
 

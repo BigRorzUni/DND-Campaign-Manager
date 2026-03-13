@@ -26,9 +26,18 @@
         <input id="encounter-expected-difficulty" placeholder="Expected difficulty" />
         <textarea id="encounter-notes-input" placeholder="Encounter notes"></textarea>
 
-        <label style="display:block; margin:8px 0;">
-            <input id="encounter-is-simulated" type="checkbox" />
-            Simulated encounter
+
+        <label class="toggle-card" for="encounter-is-simulated">
+            <input id="encounter-is-simulated" type="checkbox" class="toggle-input" />
+            <span class="toggle-switch">
+                <span class="toggle-knob"></span>
+            </span>
+            <span class="toggle-copy">
+                <strong>Simulated encounter</strong>
+                <span class="muted small">
+                    Automatically play out the fight and generate rounds, events, and analytics.
+                </span>
+            </span>
         </label>
 
         <button type="submit" id="encounter-submit-btn">Create Encounter</button>
