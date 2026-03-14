@@ -20,6 +20,7 @@ https://dnd-campaign-manager-production.up.railway.app
 ```
 
 ### Running with Docker
+
 Build the image:
 
 ```bash
@@ -47,10 +48,13 @@ docker run -d \
 
 Open the app at:
 
-```text
-http://127.0.0.1:8000
 ```
+http://localhost:8000
+```
+
+
 ### Running Locally
+
 Create a virtual environment:
 
 ```bash
@@ -70,34 +74,37 @@ Run the server:
 uvicorn app.main:app --reload
 ```
 
-Create  .env file:
-```bash
+
+### Environment Variables
+
+Create a `.env` file in the project root:
+
+```env
 DATABASE_URL=sqlite:///./dev.db
-OPENAI_API_KEY=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
+OPENAI_API_KEY=your_openai_api_key_here
 OPENAI_MODEL=gpt-4o-mini
 AI_REVIEW_ENABLED=true
 ```
-Initialise database (if you want a demo campaign)
-```
+
+
+### Initialise the Database
+
+If you want demo data:
+
+```bash
 python reset_and_seed_db.py
-```
-
-Access the app at:
-
-```
-http://127.0.0.1:8000
 ```
 
 Swagger documentation:
 
 ```
-http://127.0.0.1:8000/docs
+http://localhost:8000/docs
 ```
 
 ReDoc documentation:
 
 ```
-http://127.0.0.1:8000/redoc
+http://localhost:8000/redoc
 ```
 
 ---
